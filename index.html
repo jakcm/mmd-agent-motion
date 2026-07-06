@@ -414,7 +414,12 @@
 				},
 				{
 					name: 'YYB式幻晓伊ver1.0',
-					url: './models/YYB式幻晓伊ver1.0.pmx',
+					url: './models/YYB式幻晓伊ver1.0/YYB式幻晓伊ver1.0.pmx',
+					type: 'pmx'
+				},
+				{
+					name: 'YYB式鏡音ver1.00',
+					url: './models/YYB式鏡音ver1.00/YYB_Future_Rin.pmx',
 					type: 'pmx'
 				}
 			];
@@ -590,36 +595,82 @@
 				updateButtons();
 
 				return new Promise((resolve, reject) => {
-					const loader = new MMDLoader();
-					const helper = new MMDAnimationHelper({
-						afterglow: 2.0
-					});
+								const loader = new MMDLoader();
 
-					// 加载模型 + VMD 动画
-					loader.loadWithAnimation(
-						modelUrl,
-						[vmdFile],
-						(mmd) => {
-							const mesh = mmd.mesh;
-							mesh.castShadow = true;
-							mesh.receiveShadow = true;
+												// 修复 PMX 文件中的 Windows 路径分隔符（\ → /）
+												if (loader._loadTexture) {
+													const originalLoadTexture = loader._loadTexture.bind(loader);
+													loader._loadTexture = function(filePath, textures, params, onProgress, onError) {
+														const fixedPath = typeof filePath === 'string' ? filePath.replace(/\\/g, '/') : filePath;
+														return originalLoadTexture(fixedPath, textures, params, onProgress, onError);
+													};
+												}
 
-							// 降低材质发光强度
-							const materials = mesh.material;
-							for (let i = 0; i < materials.length; i++) {
-								if (materials[i].emissive) {
-									materials[i].emissive.multiplyScalar(0.2);
-								}
-							}
+												// 修复 PMX group morph (type 0) 引用越界索引导致 MMDLoader 崩溃的问题
+												// 某些 PMX 模型的 group morph 元素引用了不存在的 morph 索引（如索引 165 但只有 154 个 morph）
+												// MMDLoader 处理 group morph 时: data.morphs[index] 返回 undefined, 然后访问 undefined.type 崩溃
+												const meshBuilder = loader.meshBuilder;
+												if (meshBuilder && meshBuilder.build) {
+												const originalBuild = meshBuilder.build.bind(meshBuilder);
+												meshBuilder.build = function(data, resourcePath, onProgress, onError) {
+													if (data.morphs && data.metadata) {
+														const morphCount = data.morphs.length;
+														for (let i = 0; i < data.morphs.length; i++) {
+															const morph = data.morphs[i];
+															if (morph.type === 0 && morph.elements) {
+																// 过滤掉越界的 group morph 元素索引
+																const validElements = morph.elements.filter(el =>
+																	el.index >= 0 && el.index < morphCount
+																);
+																if (validElements.length !== morph.elements.length) {
+																	console.warn(`Fixed morph ${i} (${morph.name}): removed ${morph.elements.length - validElements.length} out-of-bounds group elements`);
+																	morph.elements = validElements;
+																	morph.elementCount = validElements.length;
+																}
+															}
+														}
+													}
+													return originalBuild(data, resourcePath, onProgress, onError);
+												};
+												}
 
-							scene.add(mesh);
-							currentMesh = mesh;
+								const helper = new MMDAnimationHelper({
+									afterglow: 2.0
+								});
 
-							// 设置动画
-							helper.add(mesh, {
-								animation: mmd.animation,
-								physics: true
-							});
+					// 加载模型 + VMD 动画（出错时降级为仅模型加载）
+									loader.loadWithAnimation(
+										modelUrl,
+										[vmdFile],
+										(mmd) => {
+											const mesh = mmd.mesh;
+											mesh.castShadow = true;
+											mesh.receiveShadow = true;
+
+											// 降低材质发光强度
+											const materials = mesh.material;
+											for (let i = 0; i < materials.length; i++) {
+												if (materials[i].emissive) {
+													materials[i].emissive.multiplyScalar(0.2);
+												}
+											}
+
+											scene.add(mesh);
+											currentMesh = mesh;
+
+											// 设置动画（尝试启用物理，失败时降级为无物理）
+											try {
+												helper.add(mesh, {
+													animation: mmd.animation,
+													physics: true
+												});
+											} catch (e) {
+												console.warn('Physics setup failed, retrying without physics:', e);
+												helper.add(mesh, {
+													animation: mmd.animation,
+													physics: false
+												});
+											}
 
 							// 加载音频（手动 fetch + decode，处理 AudioContext 挂起问题）
 							fetch(audioFile)
@@ -677,11 +728,90 @@
 							}
 						},
 						(error) => {
-							console.error('Model load error:', error);
-							hideLoading();
-							setStatus(`模型加载失败: ${error.message || error}`);
-							reject(error);
-						}
+												console.error('Model load error:', error);
+												// 降级：尝试仅加载模型（不带动画），再单独加载 VMD
+												loader.load(
+													modelUrl,
+													(mesh) => {
+														mesh.castShadow = true;
+														mesh.receiveShadow = true;
+														scene.add(mesh);
+														currentMesh = mesh;
+
+														// 单独加载 VMD 动画
+														loader.loadAnimation(
+															vmdFile,
+															mesh,
+															(animation) => {
+																try {
+																	helper.add(mesh, {
+																		animation: animation,
+																		physics: false
+																	});
+																} catch (e2) {
+																	console.warn('Animation setup also failed:', e2);
+																}
+
+																// 加载音频
+																fetch(audioFile)
+																	.then(r => r.arrayBuffer())
+																	.then(buf => {
+																		const listener = new THREE.AudioListener();
+																		const audio = new THREE.Audio(listener);
+																		const ctx = listener.context;
+																		ctx.decodeAudioData(buf, (buffer) => {
+																			audio.setBuffer(buffer);
+																			helper.add(audio, { audio, delayTime: audioDelayTime });
+																			scene.add(audio);
+																			scene.add(listener);
+																			audioElement = audio;
+																			audioListener = listener;
+																			currentHelper = helper;
+																			isReady = true;
+																			hideLoading();
+																			setStatus(`${modelName} 加载完成（降级模式）`);
+																			updateButtons();
+																			resolve();
+																		}, () => {
+																			currentHelper = helper;
+																			isReady = true;
+																			hideLoading();
+																			setStatus(`${modelName} 加载完成（降级模式，无音频）`);
+																			updateButtons();
+																			resolve();
+																		});
+																	})
+																	.catch(() => {
+																		currentHelper = helper;
+																		isReady = true;
+																		hideLoading();
+																		setStatus(`${modelName} 加载完成（降级模式，无音频）`);
+																		updateButtons();
+																		resolve();
+																	});
+															},
+															undefined,
+															(err2) => {
+																console.error('VMD load error:', err2);
+																// 即使动画加载失败，也显示模型
+																currentHelper = helper;
+																isReady = true;
+																hideLoading();
+																setStatus(`${modelName} 加载完成（无动画）`);
+																updateButtons();
+																resolve();
+															}
+														);
+													},
+													undefined,
+													(err2) => {
+														console.error('Fallback model load error:', err2);
+														hideLoading();
+														setStatus(`模型加载失败: ${err2.message || err2}`);
+														reject(err2);
+													}
+												);
+											}
 					);
 				});
 			}
