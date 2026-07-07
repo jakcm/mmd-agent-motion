@@ -483,7 +483,8 @@
 			document.body.appendChild(renderer.domElement);
 
 			// OutlineEffect 用于 MMD 描边渲染
-			const effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
+			// ===== 场景与舞台设置（全部包 try/catch 防崩溃） =====
+			try {			const effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
 
 			const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
 			camera.position.set(0, 15, 40);
@@ -658,7 +659,9 @@
 			});
 			backdrop.addEventListener('click', toggleMenu);
 
-			// ===== 填充模型选择器 =====
+			} catch (e) {
+				console.error('Scene setup error:', e.message || e);
+			}			// ===== 填充模型选择器 =====
 			builtInModels.forEach((model, index) => {
 				const option = document.createElement('option');
 				option.value = index;
