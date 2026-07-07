@@ -402,6 +402,7 @@
 			let isReady = false;
 			let isPlaying = false;
 			let isPaused = false;
+			let enablePhysics = false; // 白名单：需要物理模拟的模型
 			let audioListener = null;
 			let audioElement = null;
 
@@ -694,6 +695,13 @@
 				isPaused = false;
 				updateButtons();
 
+				// 物理白名单：诛仙碧瑶 V2（物理版）启用物理模拟
+				const isBiyaoV2 = modelName.includes('诛仙碧瑶') && modelName.includes('V2');
+				enablePhysics = isBiyaoV2;
+				if (enablePhysics) {
+					console.log('Physics enabled for:', modelName);
+				}
+
 				return new Promise((resolve, reject) => {
 								const loader = new MMDLoader();
 
@@ -713,9 +721,11 @@
 					meshBuilder.build = function(data, resourcePath, onProgress, onError) {
 						try {
 							if (data.metadata) {
-								// 禁用物理引擎（ammo.js 在浏览器中不稳定，且非必需）
-								data.metadata.rigidBodyCount = 0;
-								data.metadata.constraintCount = 0;
+								// 物理白名单模式：仅在 enablePhysics 为 true 时保留刚体数据
+								if (!enablePhysics) {
+									data.metadata.rigidBodyCount = 0;
+									data.metadata.constraintCount = 0;
+								}
 							}
 							if (data.morphs) {
 								const morphCount = data.morphs.length;
@@ -775,10 +785,11 @@
 											currentMesh = mesh;
 
 											// 设置动画（尝试启用物理，失败时降级为无物理）
+											// 启用物理（白名单模式下仅碧瑶 V2 启用）
 											try {
 												helper.add(mesh, {
 													animation: mmd.animation,
-													physics: true
+													physics: enablePhysics
 												});
 											} catch (e) {
 												console.warn('Physics setup failed, retrying without physics:', e);
