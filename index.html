@@ -364,6 +364,25 @@
 		<!-- Ammo.js 物理引擎（全局脚本，MMD 物理模拟依赖） -->
 		<script src="./libs/ammo.js"></script>
 
+		<!-- 监视器 Shader 材质 -->
+		<script id="vertexShader" type="x-shader/x-vertex">
+			varying vec2 vUv;
+			void main() {
+				vUv = uv;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			}
+		</script>
+
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			varying vec2 vUv;
+			uniform float strength;
+			uniform sampler2D tDiffuse;
+			void main() {
+				float n = 50.0 / strength;
+				gl_FragColor = texture2D( tDiffuse, floor( vUv * n ) / n );
+			}
+		</script>
+
 		<script type="importmap">
 			{
 				"imports": {
@@ -379,6 +398,11 @@
 			import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
 			import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
 			import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
+			import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+			import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+			import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+			import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+			import { CopyShader } from 'three/addons/shaders/CopyShader.js';
 
 			// ===== DOM 元素 =====
 			const loadingOverlay = document.getElementById('loadingOverlay');
@@ -404,6 +428,17 @@
 			let isPaused = false;
 			let audioListener = null;
 			let audioElement = null;
+
+			// ===== 舞台 3D 元素（组，稍后添加到 scene） =====
+			const stageGroup = new THREE.Group();
+			const mainGroup = new THREE.Group();
+			const beamsGroup = new THREE.Group();
+			const monitorsGroup = new THREE.Group();
+			let mikuMesh = null;
+			let composer, composer2, bloomPass;
+			let monitorShaderMat;
+			beamsGroup.visible = false;
+			monitorsGroup.visible = false;
 
 			// ===== 内置模型列表 =====
 			const builtInModels = [
@@ -500,18 +535,97 @@
 			const ambientLight = new THREE.AmbientLight(0x404060, 1.5);
 			scene.add(ambientLight);
 
+			// ===== 将舞台组添加到场景 =====
+			scene.add(stageGroup);
+			stageGroup.add(mainGroup);
+			stageGroup.add(beamsGroup);
+			stageGroup.add(monitorsGroup);
+
+			// ===== 舞台背景：线框球体 =====
+			const stageSphere = new THREE.Mesh(
+				new THREE.SphereGeometry(200, 32),
+				new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
+			);
+			mainGroup.add(stageSphere);
+
 			// ===== 地面 =====
 			const groundGeo = new THREE.CircleGeometry(50, 32);
 			const groundMat = new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide });
 			const ground = new THREE.Mesh(groundGeo, groundMat);
 			ground.rotation.x = -Math.PI / 2;
 			ground.receiveShadow = true;
-			scene.add(ground);
+			mainGroup.add(ground);
 
-			// 网格辅助线
-			const gridHelper = new THREE.GridHelper(50, 25, 0x444466, 0x333355);
-			gridHelper.position.y = 0.01;
-			scene.add(gridHelper);
+			// ===== 监视器（3 块大屏幕） =====
+			monitorShaderMat = new THREE.ShaderMaterial({
+				uniforms: {
+					strength: { value: 0.20 },
+					tDiffuse: { value: null }
+				},
+				vertexShader: document.getElementById('vertexShader').textContent,
+				fragmentShader: document.getElementById('fragmentShader').textContent
+			});
+
+			function createMonitor() {
+				const geo = new THREE.PlaneGeometry(100, 40);
+				const mesh = new THREE.Mesh(geo, monitorShaderMat);
+				const edge = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+				edge.scale.multiplyScalar(1.01);
+				edge.position.z -= 0.01;
+				mesh.add(edge);
+				return mesh;
+			}
+
+			let tv = createMonitor();
+			tv.position.y = 25;
+			tv.position.z = -50;
+			tv.rotation.set(Math.PI, Math.PI, Math.PI);
+			monitorsGroup.add(tv);
+
+			tv = createMonitor();
+			tv.position.x = -70;
+			tv.position.y = 25;
+			tv.position.z = 0;
+			tv.rotation.set(Math.PI, 110 * Math.PI / 180, Math.PI);
+			monitorsGroup.add(tv);
+
+			tv = createMonitor();
+			tv.position.x = 70;
+			tv.position.y = 25;
+			tv.position.z = 0;
+			tv.rotation.set(Math.PI, -110 * Math.PI / 180, Math.PI);
+			monitorsGroup.add(tv);
+
+			// ===== 光束粒子 =====
+			const beamGeo = new THREE.SphereGeometry(0.05, 4);
+			const beamNum = 200;
+			for (let i = 0; i < beamNum; i++) {
+				const beamMesh = new THREE.Mesh(
+					beamGeo,
+					new THREE.MeshBasicMaterial({
+						color: 0xffff88,
+						opacity: 0.25 - 0.25 / beamNum * i,
+						transparent: true
+					})
+				);
+				beamsGroup.add(beamMesh);
+			}
+
+			// ===== Bloom 后期处理 =====
+			bloomPass = new THREE.UnrealBloomPass(
+				new THREE.Vector2(window.innerWidth, window.innerHeight),
+				0.6, 0.4, 0.2
+			);
+			const copyPass = new ShaderPass(CopyShader);
+			copyPass.renderToScreen = true;
+			composer = new EffectComposer(renderer);
+			composer.setSize(window.innerWidth, window.innerHeight);
+			composer.addPass(bloomPass);
+			composer.addPass(copyPass);
+			composer2 = new EffectComposer(renderer);
+			composer2.readBuffer = composer.readBuffer;
+			composer2.setSize(window.innerWidth, window.innerHeight);
+			composer2.addPass(new ShaderPass(CopyShader));
 
 			// ===== UI 工具函数 =====
 			let statusTimeout = null;
@@ -686,7 +800,7 @@
 												}
 											}
 
-											scene.add(mesh);
+											mainGroup.add(mesh);
 											currentMesh = mesh;
 
 											// 设置动画（尝试启用物理，失败时降级为无物理）
@@ -766,7 +880,7 @@
 													(mesh) => {
 														mesh.castShadow = true;
 														mesh.receiveShadow = true;
-														scene.add(mesh);
+														mainGroup.add(mesh);
 														currentMesh = mesh;
 
 														// 单独加载 VMD 动画
@@ -967,9 +1081,33 @@
 				camera.updateProjectionMatrix();
 				renderer.setSize(window.innerWidth, window.innerHeight);
 				effect.setSize(window.innerWidth, window.innerHeight);
+				composer.setSize(window.innerWidth, window.innerHeight);
+				composer2.setSize(window.innerWidth, window.innerHeight);
 			});
 
-			// ===== 动画循环 =====
+			// ===== 光束追踪 =====
+			function updateBeams() {
+				if (!mikuMesh) return;
+				// 使用模型骨骼第 110 号位置作为光束追踪点
+				const bones = mikuMesh.skeleton ? mikuMesh.skeleton.bones : null;
+				if (!bones || bones.length <= 110) return;
+				const pos = bones[110].getWorldPosition(new THREE.Vector3());
+				const num = 20;
+				for (let i = beamsGroup.children.length - 1; i > 0; i--) {
+					if (i < num) {
+						beamsGroup.children[i].position.copy(
+							beamsGroup.children[0].position
+						).lerp(pos, i / num);
+					} else {
+						beamsGroup.children[i].position.copy(
+							beamsGroup.children[i - num].position
+						);
+					}
+				}
+				beamsGroup.children[0].position.copy(pos);
+			}
+
+			// ===== 动画循环（多 Pass 渲染） =====
 			const clock = new THREE.Clock();
 
 			function animate() {
@@ -980,11 +1118,11 @@
 				// 更新 MMD 动画（仅在播放状态）
 				if (isReady && currentHelper && isPlaying && !isPaused) {
 					currentHelper.update(delta);
+					mikuMesh = currentMesh;
 				}
 
 				// 聚光灯跟随模型
 				if (currentMesh) {
-					// 跟踪模型中心位置
 					spotLight.target.position.set(
 						currentMesh.position.x,
 						currentMesh.position.y + 10,
@@ -992,10 +1130,44 @@
 					);
 				}
 
+				// 更新光束粒子
+				if (isPlaying && mikuMesh) {
+					updateBeams();
+				}
+
 				controls.update();
 
-				// 使用 OutlineEffect 渲染
-				effect.render(scene, camera);
+				// ===== 多 Pass 渲染 =====
+				// Pass 1: 渲染主场景（模型 + 地面 + 线框球体）
+				renderer.autoClear = true;
+				renderer.shadowMap.enabled = true;
+				scene.autoUpdate = true;
+				mainGroup.visible = true;
+				beamsGroup.visible = false;
+				monitorsGroup.visible = false;
+				effect.render(scene, camera, composer.readBuffer);
+
+				// Pass 2: 渲染光束粒子
+				renderer.autoClear = false;
+				renderer.shadowMap.enabled = false;
+				scene.autoUpdate = false;
+				mainGroup.visible = false;
+				beamsGroup.visible = true;
+				monitorsGroup.visible = false;
+				renderer.render(scene, camera, composer.readBuffer);
+
+				// Pass 3: 复制到 composer2（监视器纹理源）
+				monitorShaderMat.uniforms.tDiffuse.value = composer2.writeBuffer.texture;
+				composer2.render();
+
+				// Pass 4: 渲染监视器
+				mainGroup.visible = false;
+				beamsGroup.visible = false;
+				monitorsGroup.visible = true;
+				renderer.render(scene, camera, composer.readBuffer);
+
+				// Pass 5: Bloom 输出到屏幕
+				composer.render();
 			}
 
 			animate();
