@@ -483,11 +483,15 @@
 			};
 
 			const scene = new THREE.Scene();
-			scene.background = new THREE.Color(0x1a1a2e);
+			scene.background = new THREE.Color(0x2a2a4e);
 
 			// ===== 光照系统 =====
-			// 聚光灯（跟随模型）
-			const spotLight = new THREE.SpotLight(0x223344, 50);
+			// 半球光（模拟自然天光：天空暖色 + 地面冷色反射）
+			const hemiLight = new THREE.HemisphereLight(0xffeedd, 0x080820, 1.5);
+			scene.add(hemiLight);
+
+			// 聚光灯（舞台追光，暖白色）
+			const spotLight = new THREE.SpotLight(0xffeedd, 80);
 			spotLight.position.set(5, 20, 15);
 			spotLight.angle = 0.8;
 			spotLight.penumbra = 0.8;
@@ -496,8 +500,8 @@
 			scene.add(spotLight);
 			scene.add(spotLight.target);
 
-			// 方向光（主光源 + 阴影）
-			const directionalLight = new THREE.DirectionalLight(0x999999, 3);
+			// 方向光（主光源 + 阴影，暖白）
+			const directionalLight = new THREE.DirectionalLight(0xffeedd, 5);
 			directionalLight.position.set(-15, 15, 20);
 			directionalLight.castShadow = true;
 			directionalLight.shadow.mapSize.width = 1024;
@@ -509,8 +513,18 @@
 			directionalLight.shadow.bias = -0.001;
 			scene.add(directionalLight);
 
+			// 右侧补光（冷色，增加立体感）
+			const fillLight = new THREE.DirectionalLight(0x8888ff, 1.5);
+			fillLight.position.set(15, 10, -10);
+			scene.add(fillLight);
+
+			// 背光轮廓光
+			const rimLight = new THREE.DirectionalLight(0xffffff, 1.0);
+			rimLight.position.set(0, 10, -20);
+			scene.add(rimLight);
+
 			// 环境光
-			const ambientLight = new THREE.AmbientLight(0x404060, 1.5);
+			const ambientLight = new THREE.AmbientLight(0x8888cc, 2.0);
 			scene.add(ambientLight);
 
 			// ===== 将舞台组添加到场景 =====
@@ -739,13 +753,8 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 降低材质发光强度
+											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
 											const materials = mesh.material;
-											for (let i = 0; i < materials.length; i++) {
-												if (materials[i].emissive) {
-													materials[i].emissive.multiplyScalar(0.2);
-												}
-											}
 
 											scene.add(mesh);
 											currentMesh = mesh;
