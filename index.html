@@ -60,6 +60,12 @@
 			.loading-overlay .loading-text {
 				font-size: 16px;
 				color: #e0e0e0;
+				user-select: text;
+				-webkit-user-select: text;
+				cursor: text;
+			}
+			.loading-overlay .loading-text.error {
+				color: #ff6b6b;
 			}
 
 			/* ===== 悬浮菜单按钮 ===== */
@@ -595,6 +601,16 @@
 									</label>
 								</div>
 
+							<div class="panel-section">
+								<div class="section-title">渲染参数</div>
+								<div class="rp-actions">
+									<button id="saveRenderBtn">💾 保存</button>
+									<button id="exportRenderBtn">📤 导出</button>
+									<button id="importRenderBtn">📥 导入</button>
+								</div>
+							</div>
+							<input type="file" id="renderImportInput" accept=".json" style="display:none">
+
 			</div>
 
 		<!-- 渲染设置按钮（右下角） -->
@@ -711,12 +727,6 @@
 					</div>
 				</div>
 			</div>
-			<div class="rp-actions">
-				<button id="saveRenderBtn">💾 保存</button>
-				<button id="exportRenderBtn">📤 导出</button>
-				<button id="importRenderBtn">📥 导入</button>
-			</div>
-			<input type="file" id="renderImportInput" accept=".json" style="display:none">
 		</div>
 
 		<!-- Ammo.js 物理引擎（全局脚本，MMD 物理模拟依赖） -->
@@ -1006,8 +1016,9 @@
 				console.log('[Status]', text);
 			}
 
-			function showLoading(text) {
+			function showLoading(text, isError = false) {
 				loadingText.textContent = text;
+				loadingText.classList.toggle('error', isError);
 				loadingOverlay.classList.remove('hidden');
 			}
 
@@ -1959,7 +1970,7 @@
 				}
 				} catch (initErr) {
 					console.error('Init error:', initErr.message, initErr.stack);
-					showLoading('加载失败: ' + initErr.message);
+					showLoading('加载失败: ' + initErr.message, true);
 				}
 			})();
 		</script>
