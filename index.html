@@ -95,6 +95,10 @@
 				width: 24px;
 				height: 24px;
 			}
+			.play-toggle svg {
+				width: 22px;
+				height: 22px;
+			}
 
 			/* ===== 播放/暂停切换按钮（位于菜单按钮下方） ===== */
 			.play-toggle {
@@ -223,53 +227,6 @@
 				display: none;
 			}
 
-			/* ===== 播放控制按钮 ===== */
-			.playback-controls {
-				display: flex;
-				gap: 8px;
-			}
-			.playback-controls button {
-				flex: 1;
-				padding: 12px 0;
-				border: none;
-				border-radius: 10px;
-				cursor: pointer;
-				font-size: 14px;
-				font-weight: 700;
-				transition: transform 0.15s, opacity 0.2s;
-				touch-action: manipulation;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 4px;
-			}
-			.playback-controls button:active {
-				transform: scale(0.93);
-			}
-			.playback-controls button:disabled {
-				opacity: 0.4;
-				cursor: not-allowed;
-			}
-			.playback-controls button svg {
-				width: 18px;
-				height: 18px;
-			}
-			#stopBtn {
-				background: rgba(255,80,80,0.2);
-				color: #ff6b6b;
-				border: 1px solid rgba(255,80,80,0.3);
-			}
-
-			/* ===== 音乐控制 ===== */
-			.music-info {
-				font-size: 13px;
-				color: #aaa;
-				margin-top: 8px;
-				padding: 8px 12px;
-				background: rgba(255,255,255,0.04);
-				border-radius: 8px;
-			}
-
 			/* ===== 移动端适配 ===== */
 			@media (max-width: 600px) {
 				.menu-toggle, .play-toggle {
@@ -348,7 +305,7 @@
 				right: 0;
 				height: 25vh;
 				min-height: 220px;
-				max-height: 300px;
+				max-height: 380px;
 				background: rgba(20, 20, 40, 0.96);
 				backdrop-filter: blur(24px);
 				-webkit-backdrop-filter: blur(24px);
@@ -522,6 +479,32 @@
 				cursor: pointer;
 			}
 
+			/* ===== 保存/导入/导出按钮组 ===== */
+			.rp-actions {
+				display: flex;
+				gap: 6px;
+				margin-top: 8px;
+				padding-top: 8px;
+				border-top: 1px solid rgba(255,255,255,0.08);
+			}
+			.rp-actions button {
+				flex: 1;
+				padding: 6px 4px;
+				border: 1px solid rgba(255,255,255,0.12);
+				border-radius: 8px;
+				background: rgba(255,255,255,0.06);
+				color: #ccc;
+				font-size: 11px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: background 0.2s, color 0.2s;
+				touch-action: manipulation;
+			}
+			.rp-actions button:active {
+				background: rgba(106, 130, 251, 0.25);
+				color: #fff;
+			}
+
 			@media (max-width: 600px) {
 				.render-btn {
 					width: 44px;
@@ -535,7 +518,7 @@
 				}
 				.render-panel {
 					height: 30vh;
-					max-height: 260px;
+					max-height: 340px;
 				}
 			}
 		</style>
@@ -612,18 +595,7 @@
 									</label>
 								</div>
 
-			<!-- 播放控制 -->
-			<div class="panel-section">
-				<div class="section-title">播放控制</div>
-				<div class="playback-controls">
-					<button id="stopBtn" disabled>
-						<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
-						停止
-					</button>
-				</div>
-				<div class="music-info" id="musicInfo">🎵 wavefile_short.mp3</div>
 			</div>
-		</div>
 
 		<!-- 渲染设置按钮（右下角） -->
 		<button class="render-btn" id="renderBtn" aria-label="渲染设置">
@@ -729,8 +701,22 @@
 						<div class="rp-label"><span>物理模拟</span></div>
 						<label class="rp-check-label"><input type="checkbox" id="physicsEnabled" checked> 启用物理（裙摆等动态效果）</label>
 					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>网格线颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="gridColor" value="#444466"><span>普通线</span></div><div class="rp-color-item"><input type="color" id="gridCenterColor" value="#333355"><span>中心线</span></div></div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>网格线透明度</span><span class="rp-val" id="val-gridOpacity">1.0</span></div>
+						<input type="range" id="gridOpacity" min="0" max="1" step="0.05" value="1.0">
+					</div>
 				</div>
 			</div>
+			<div class="rp-actions">
+				<button id="saveRenderBtn">💾 保存</button>
+				<button id="exportRenderBtn">📤 导出</button>
+				<button id="importRenderBtn">📥 导入</button>
+			</div>
+			<input type="file" id="renderImportInput" accept=".json" style="display:none">
 		</div>
 
 		<!-- Ammo.js 物理引擎（全局脚本，MMD 物理模拟依赖） -->
@@ -769,8 +755,6 @@
 			const danceSelector = document.getElementById('danceSelector');
 			const vmdFileInput = document.getElementById('vmdFileInput');
 			const audioFileInput = document.getElementById('audioFileInput');
-			const stopBtn = document.getElementById('stopBtn');
-			const musicInfo = document.getElementById('musicInfo');
 			const playToggle = document.getElementById('playToggle');
 			const playIcon = document.getElementById('playIcon');
 
@@ -1232,7 +1216,6 @@
 										isReady = true;
 
 										hideLoading();
-						musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
 										setStatus(`${modelName} 加载完成，点击播放`);
 										updateButtons();
 										resolve();
@@ -1295,7 +1278,6 @@
 											scene.add(listener);
 											audioElement = audio;
 											audioListener = listener;
-							musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
 											currentHelper = helper;
 											isReady = true;
 											hideLoading();
@@ -1391,28 +1373,6 @@
 				updatePlayToggleIcon();
 			}
 
-			function stopAnimation() {
-				if (!isPlaying && !isPaused) return;
-
-				isPlaying = false;
-				isPaused = false;
-
-				// 停止音频
-				if (audioElement) {
-					audioElement.stop();
-				}
-
-				// 重置动画到起点
-				if (currentHelper) {
-					const meshData = currentHelper.objects.get('mesh');
-					if (meshData && meshData.mixer) {
-						meshData.mixer.setTime(0);
-					}
-				}
-
-				updateButtons();
-			}
-
 			// ===== 播放/暂停切换 =====
 			function togglePlayPause() {
 				if (!isReady) return;
@@ -1435,13 +1395,11 @@
 
 			// ===== 按钮状态更新 =====
 			function updateButtons() {
-				stopBtn.disabled = !isReady;
 				updatePlayToggleIcon();
 			}
 
 			// ===== 事件监听 =====
 			playToggle.addEventListener('click', togglePlayPause);
-			stopBtn.addEventListener('click', stopAnimation);
 
 			// 模型选择
 			modelSelector.addEventListener('change', async () => {
@@ -1450,9 +1408,6 @@
 				const model = builtInModels[index];
 				await loadMMDModel(model.url, model.name);
 				const danceIdx = parseInt(danceSelector.value);
-				if (!isNaN(danceIdx) && builtInDances[danceIdx]) {
-						musicInfo.textContent = '🎵 ' + builtInDances[danceIdx].name;
-				}
 				if (menuOpen) toggleMenu();
 			});
 
@@ -1744,6 +1699,228 @@
 					}
 				}
 			});
+
+			// ===== 网格控制 =====
+			// GridHelper material 是数组 [中心线材质, 普通网格线材质]
+			document.getElementById('gridColor').addEventListener('input', (e) => {
+				if (gridHelper.material[1]) {
+					gridHelper.material[1].color.set(e.target.value);
+				}
+			});
+			document.getElementById('gridCenterColor').addEventListener('input', (e) => {
+				if (gridHelper.material[0]) {
+					gridHelper.material[0].color.set(e.target.value);
+				}
+			});
+			document.getElementById('gridOpacity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-gridOpacity').textContent = v.toFixed(2);
+				gridHelper.material.forEach(mat => {
+					mat.transparent = v < 1;
+					mat.opacity = v;
+				});
+			});
+
+			// ===== 渲染设置收集/应用 =====
+			function collectRenderSettings() {
+				return {
+					ambientIntensity: ambientLight.intensity,
+					hemiIntensity: hemiLight.intensity,
+					hemiSkyColor: '#' + hemiLight.color.getHexString(),
+					hemiGroundColor: '#' + hemiLight.groundColor.getHexString(),
+					dirIntensity: directionalLight.intensity,
+					dirColor: '#' + directionalLight.color.getHexString(),
+					fillIntensity: fillLight.intensity,
+					fillColor: '#' + fillLight.color.getHexString(),
+					rimIntensity: rimLight.intensity,
+					spotIntensity: spotLight.intensity,
+					fov: camera.fov,
+					minDist: controls.minDistance,
+					maxDist: controls.maxDistance,
+					polarAngle: Math.round(controls.maxPolarAngle * 180 / Math.PI),
+					outlineThickness: parseFloat(document.getElementById('outlineThickness').value),
+					bgColor: document.getElementById('bgColor').value,
+					shadowEnabled: document.getElementById('shadowEnabled').checked,
+					physicsEnabled: document.getElementById('physicsEnabled').checked,
+					gridColor: document.getElementById('gridColor').value,
+					gridCenterColor: document.getElementById('gridCenterColor').value,
+					gridOpacity: parseFloat(document.getElementById('gridOpacity').value),
+				};
+			}
+
+			function applyRenderSettings(data) {
+				if (!data) return;
+				// 光照
+				if (data.ambientIntensity !== undefined) {
+					ambientLight.intensity = data.ambientIntensity;
+					document.getElementById('ambientIntensity').value = data.ambientIntensity;
+					document.getElementById('val-ambientIntensity').textContent = data.ambientIntensity.toFixed(1);
+				}
+				if (data.hemiIntensity !== undefined) {
+					hemiLight.intensity = data.hemiIntensity;
+					document.getElementById('hemiIntensity').value = data.hemiIntensity;
+					document.getElementById('val-hemiIntensity').textContent = data.hemiIntensity.toFixed(1);
+				}
+				if (data.hemiSkyColor) {
+					hemiLight.color.set(data.hemiSkyColor);
+					document.getElementById('hemiSkyColor').value = data.hemiSkyColor;
+				}
+				if (data.hemiGroundColor) {
+					hemiLight.groundColor.set(data.hemiGroundColor);
+					document.getElementById('hemiGroundColor').value = data.hemiGroundColor;
+				}
+				if (data.dirIntensity !== undefined) {
+					directionalLight.intensity = data.dirIntensity;
+					document.getElementById('dirIntensity').value = data.dirIntensity;
+					document.getElementById('val-dirIntensity').textContent = data.dirIntensity.toFixed(1);
+				}
+				if (data.dirColor) {
+					directionalLight.color.set(data.dirColor);
+					document.getElementById('dirColor').value = data.dirColor;
+				}
+				if (data.fillIntensity !== undefined) {
+					fillLight.intensity = data.fillIntensity;
+					document.getElementById('fillIntensity').value = data.fillIntensity;
+					document.getElementById('val-fillIntensity').textContent = data.fillIntensity.toFixed(1);
+				}
+				if (data.fillColor) {
+					fillLight.color.set(data.fillColor);
+					document.getElementById('fillColor').value = data.fillColor;
+				}
+				if (data.rimIntensity !== undefined) {
+					rimLight.intensity = data.rimIntensity;
+					document.getElementById('rimIntensity').value = data.rimIntensity;
+					document.getElementById('val-rimIntensity').textContent = data.rimIntensity.toFixed(1);
+				}
+				if (data.spotIntensity !== undefined) {
+					spotLight.intensity = data.spotIntensity;
+					document.getElementById('spotIntensity').value = data.spotIntensity;
+					document.getElementById('val-spotIntensity').textContent = data.spotIntensity;
+				}
+				// 相机
+				if (data.fov !== undefined) {
+					camera.fov = data.fov;
+					camera.updateProjectionMatrix();
+					document.getElementById('fov').value = data.fov;
+					document.getElementById('val-fov').textContent = data.fov + '°';
+				}
+				if (data.minDist !== undefined) {
+					controls.minDistance = data.minDist;
+					document.getElementById('minDist').value = data.minDist;
+					document.getElementById('val-minDist').textContent = data.minDist;
+				}
+				if (data.maxDist !== undefined) {
+					controls.maxDistance = data.maxDist;
+					document.getElementById('maxDist').value = data.maxDist;
+					document.getElementById('val-maxDist').textContent = data.maxDist;
+				}
+				if (data.polarAngle !== undefined) {
+					controls.maxPolarAngle = data.polarAngle * Math.PI / 180;
+					document.getElementById('polarAngle').value = data.polarAngle;
+					document.getElementById('val-polarAngle').textContent = data.polarAngle + '°';
+				}
+				// 渲染
+				if (data.outlineThickness !== undefined) {
+					if (effect.parameters) {
+						effect.parameters.defaultThickness = data.outlineThickness;
+					}
+					document.getElementById('outlineThickness').value = data.outlineThickness;
+					document.getElementById('val-outlineThickness').textContent = data.outlineThickness.toFixed(3);
+				}
+				if (data.bgColor) {
+					scene.background = new THREE.Color(data.bgColor);
+					document.getElementById('bgColor').value = data.bgColor;
+				}
+				if (data.shadowEnabled !== undefined) {
+					const en = data.shadowEnabled;
+					renderer.shadowMap.enabled = en;
+					directionalLight.castShadow = en;
+					spotLight.castShadow = en;
+					document.getElementById('shadowEnabled').checked = en;
+				}
+				if (data.physicsEnabled !== undefined) {
+					physicsEnabled = data.physicsEnabled;
+					document.getElementById('physicsEnabled').checked = data.physicsEnabled;
+				}
+				// 网格
+				if (data.gridColor) {
+					if (gridHelper.material[1]) {
+						gridHelper.material[1].color.set(data.gridColor);
+					}
+					document.getElementById('gridColor').value = data.gridColor;
+				}
+				if (data.gridCenterColor) {
+					if (gridHelper.material[0]) {
+						gridHelper.material[0].color.set(data.gridCenterColor);
+					}
+					document.getElementById('gridCenterColor').value = data.gridCenterColor;
+				}
+				if (data.gridOpacity !== undefined) {
+					const v = data.gridOpacity;
+					gridHelper.material.forEach(mat => {
+						mat.transparent = v < 1;
+						mat.opacity = v;
+					});
+					document.getElementById('gridOpacity').value = v;
+					document.getElementById('val-gridOpacity').textContent = v.toFixed(2);
+				}
+			}
+
+			// ===== 保存/导出/导入 =====
+			document.getElementById('saveRenderBtn').addEventListener('click', () => {
+				try {
+					localStorage.setItem('mmd_render_settings', JSON.stringify(collectRenderSettings()));
+				} catch(e) {
+					console.warn('Save render settings failed:', e);
+				}
+			});
+			document.getElementById('exportRenderBtn').addEventListener('click', () => {
+				const data = collectRenderSettings();
+				const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				const d = new Date();
+				a.download = 'mmd-render-settings-' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '.json';
+				document.body.appendChild(a);
+				a.click();
+				setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+			});
+			document.getElementById('importRenderBtn').addEventListener('click', () => {
+				document.getElementById('renderImportInput').click();
+			});
+			document.getElementById('renderImportInput').addEventListener('change', (e) => {
+				const file = e.target.files[0];
+				if (!file) return;
+				const reader = new FileReader();
+				reader.onload = (evt) => {
+					try {
+						const data = JSON.parse(evt.target.result);
+						applyRenderSettings(data);
+						localStorage.setItem('mmd_render_settings', JSON.stringify(data));
+					} catch(err) {
+						console.warn('Import render settings failed:', err);
+						alert('导入失败：JSON 格式错误');
+					}
+				};
+				reader.readAsText(file);
+				e.target.value = '';
+			});
+
+			// ===== 从 localStorage 恢复 =====
+			(function() {
+				try {
+					const saved = localStorage.getItem('mmd_render_settings');
+					if (saved) {
+						const data = JSON.parse(saved);
+						// 保存引用，在模型加载后用
+						window._pendingRenderSettings = data;
+					}
+				} catch(e) {
+					console.warn('Failed to load saved render settings:', e);
+				}
+			})();
+
 			// ===== 初始化 =====
 			(async () => {
 				try {
@@ -1774,6 +1951,12 @@
 				danceSelector.value = '0';
 				await loadMMDModel(builtInModels[0].url, builtInModels[0].name);
 				updateButtons();
+
+				// 恢复保存的渲染参数
+				if (window._pendingRenderSettings) {
+					applyRenderSettings(window._pendingRenderSettings);
+					delete window._pendingRenderSettings;
+				}
 				} catch (initErr) {
 					console.error('Init error:', initErr.message, initErr.stack);
 					showLoading('加载失败: ' + initErr.message);
