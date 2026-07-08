@@ -1712,24 +1712,24 @@
 			});
 
 			// ===== 网格控制 =====
-			// GridHelper material 是数组 [中心线材质, 普通网格线材质]
+			// GridHelper v0.171.0 material 是单个材质（vertexColors: true）
+			// 颜色修改时关闭 vertexColors 让 material.color 生效
 			document.getElementById('gridColor').addEventListener('input', (e) => {
-				if (gridHelper.material[1]) {
-					gridHelper.material[1].color.set(e.target.value);
-				}
+				gridHelper.material.vertexColors = false;
+				gridHelper.material.color.set(e.target.value);
+				gridHelper.material.needsUpdate = true;
 			});
 			document.getElementById('gridCenterColor').addEventListener('input', (e) => {
-				if (gridHelper.material[0]) {
-					gridHelper.material[0].color.set(e.target.value);
-				}
+				gridHelper.material.vertexColors = false;
+				gridHelper.material.color.set(e.target.value);
+				gridHelper.material.needsUpdate = true;
 			});
 			document.getElementById('gridOpacity').addEventListener('input', (e) => {
 				const v = parseFloat(e.target.value);
 				document.getElementById('val-gridOpacity').textContent = v.toFixed(2);
-				gridHelper.material.forEach(mat => {
-					mat.transparent = v < 1;
-					mat.opacity = v;
-				});
+				gridHelper.material.transparent = v < 1;
+				gridHelper.material.opacity = v;
+				gridHelper.material.needsUpdate = true;
 			});
 
 			// ===== 渲染设置收集/应用 =====
@@ -1855,23 +1855,22 @@
 				}
 				// 网格
 				if (data.gridColor) {
-					if (gridHelper.material[1]) {
-						gridHelper.material[1].color.set(data.gridColor);
-					}
+					gridHelper.material.vertexColors = false;
+					gridHelper.material.color.set(data.gridColor);
+					gridHelper.material.needsUpdate = true;
 					document.getElementById('gridColor').value = data.gridColor;
 				}
 				if (data.gridCenterColor) {
-					if (gridHelper.material[0]) {
-						gridHelper.material[0].color.set(data.gridCenterColor);
-					}
+					gridHelper.material.vertexColors = false;
+					gridHelper.material.color.set(data.gridCenterColor);
+					gridHelper.material.needsUpdate = true;
 					document.getElementById('gridCenterColor').value = data.gridCenterColor;
 				}
 				if (data.gridOpacity !== undefined) {
 					const v = data.gridOpacity;
-					gridHelper.material.forEach(mat => {
-						mat.transparent = v < 1;
-						mat.opacity = v;
-					});
+					gridHelper.material.transparent = v < 1;
+					gridHelper.material.opacity = v;
+					gridHelper.material.needsUpdate = true;
 					document.getElementById('gridOpacity').value = v;
 					document.getElementById('val-gridOpacity').textContent = v.toFixed(2);
 				}
