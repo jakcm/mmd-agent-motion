@@ -639,12 +639,12 @@
 				<!-- 光照 -->
 				<div class="render-tab-content active" id="tab-lighting">
 					<div class="rp-setting">
-						<div class="rp-label"><span>环境光强度</span><span class="rp-val" id="val-ambientIntensity">2.0</span></div>
-						<input type="range" id="ambientIntensity" min="0" max="10" step="0.1" value="2.0">
+						<div class="rp-label"><span>环境光强度</span><span class="rp-val" id="val-ambientIntensity">3.3</span></div>
+						<input type="range" id="ambientIntensity" min="0" max="10" step="0.1" value="3.3">
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>半球光强度</span><span class="rp-val" id="val-hemiIntensity">1.5</span></div>
-						<input type="range" id="hemiIntensity" min="0" max="5" step="0.1" value="1.5">
+						<div class="rp-label"><span>半球光强度</span><span class="rp-val" id="val-hemiIntensity">5.0</span></div>
+						<input type="range" id="hemiIntensity" min="0" max="10" step="0.1" value="5.0">
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>半球光</span></div>
@@ -654,28 +654,28 @@
 						</div>
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>主方向光强度</span><span class="rp-val" id="val-dirIntensity">5.0</span></div>
-						<input type="range" id="dirIntensity" min="0" max="20" step="0.1" value="5.0">
+						<div class="rp-label"><span>主方向光强度</span><span class="rp-val" id="val-dirIntensity">1.5</span></div>
+						<input type="range" id="dirIntensity" min="0" max="20" step="0.1" value="1.5">
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>主方向光颜色</span></div>
 						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="dirColor" value="#ffeedd"><span>色</span></div></div>
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>补光强度</span><span class="rp-val" id="val-fillIntensity">1.5</span></div>
-						<input type="range" id="fillIntensity" min="0" max="5" step="0.1" value="1.5">
+						<div class="rp-label"><span>补光强度</span><span class="rp-val" id="val-fillIntensity">0.6</span></div>
+						<input type="range" id="fillIntensity" min="0" max="5" step="0.1" value="0.6">
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>补光颜色</span></div>
 						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="fillColor" value="#8888ff"><span>色</span></div></div>
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>背光强度</span><span class="rp-val" id="val-rimIntensity">1.0</span></div>
-						<input type="range" id="rimIntensity" min="0" max="5" step="0.1" value="1.0">
+						<div class="rp-label"><span>背光强度</span><span class="rp-val" id="val-rimIntensity">0.3</span></div>
+						<input type="range" id="rimIntensity" min="0" max="5" step="0.1" value="0.3">
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>聚光强度</span><span class="rp-val" id="val-spotIntensity">80</span></div>
-						<input type="range" id="spotIntensity" min="0" max="200" step="1" value="80">
+						<div class="rp-label"><span>聚光强度</span><span class="rp-val" id="val-spotIntensity">145</span></div>
+						<input type="range" id="spotIntensity" min="0" max="200" step="1" value="145">
 					</div>
 				</div>
 
@@ -694,8 +694,8 @@
 						<input type="range" id="maxDist" min="10" max="300" step="5" value="100">
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>垂直俯仰角限制</span><span class="rp-val" id="val-polarAngle">55°</span></div>
-						<input type="range" id="polarAngle" min="0" max="90" step="1" value="55">
+						<div class="rp-label"><span>垂直俯仰角限制</span><span class="rp-val" id="val-polarAngle">90°</span></div>
+						<input type="range" id="polarAngle" min="0" max="90" step="1" value="90">
 					</div>
 				</div>
 
@@ -711,7 +711,7 @@
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>阴影</span></div>
-						<label class="rp-check-label"><input type="checkbox" id="shadowEnabled" checked> 启用阴影</label>
+						<label class="rp-check-label"><input type="checkbox" id="shadowEnabled"> 启用阴影</label>
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>物理模拟</span></div>
@@ -722,16 +722,24 @@
 						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="gridColor" value="#444466"><span>普通线</span></div><div class="rp-color-item"><input type="color" id="gridCenterColor" value="#333355"><span>中心线</span></div></div>
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>网格线透明度</span><span class="rp-val" id="val-gridOpacity">1.0</span></div>
-						<input type="range" id="gridOpacity" min="0" max="1" step="0.05" value="1.0">
+						<div class="rp-label"><span>网格线透明度</span><span class="rp-val" id="val-gridOpacity">0.45</span></div>
+						<input type="range" id="gridOpacity" min="0" max="1" step="0.05" value="0.45">
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>线框球体颜色</span></div>
-						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="sphereColor" value="#ffffff"><span>色</span></div></div>
+						<div class="rp-label"><span>球体填充颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="sphereColor" value="#000000"><span>色</span></div></div>
 					</div>
 					<div class="rp-setting">
-						<div class="rp-label"><span>线框球体透明度</span><span class="rp-val" id="val-sphereOpacity">1.0</span></div>
-						<input type="range" id="sphereOpacity" min="0" max="1" step="0.05" value="1.0">
+						<div class="rp-label"><span>球体填充透明度</span><span class="rp-val" id="val-sphereOpacity">0.50</span></div>
+						<input type="range" id="sphereOpacity" min="0" max="1" step="0.05" value="0.5">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>球体边框颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="sphereBorderColor" value="#ffffff"><span>色</span></div></div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>地面颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="groundColor" value="#444444"><span>色</span></div></div>
 					</div>
 				</div>
 			</div>
@@ -788,7 +796,7 @@
 			let loadingId = 0; // 递增计数器，用于忽略过期回调
 
 			// ===== 舞台 3D 组（异步构建） =====
-			let stageGroup, beamsGroup, monitorsGroup, wireframeSphere;
+			let stageGroup, beamsGroup, monitorsGroup, sphereFill, sphereWireframe;
 
 			// ===== 内置模型列表 =====
 			const builtInModels = [
@@ -885,7 +893,7 @@
 			const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 			renderer.setSize(window.innerWidth, window.innerHeight);
 			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.enabled = false;
 			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 			document.body.appendChild(renderer.domElement);
 
@@ -900,7 +908,7 @@
 			controls.target.set(0, 10, 0);
 			controls.minDistance = 5;
 			controls.maxDistance = 100;
-			controls.maxPolarAngle = Math.PI * 0.55; // 防止看到地面下方
+			controls.maxPolarAngle = Math.PI * 0.5; // 90°
 			controls.update();
 
 			// 移动端触摸优化
@@ -916,11 +924,11 @@
 
 			// ===== 光照系统 =====
 			// 半球光（模拟自然天光：天空暖色 + 地面冷色反射）
-			const hemiLight = new THREE.HemisphereLight(0xffeedd, 0x080820, 1.5);
+			const hemiLight = new THREE.HemisphereLight(0xffeedd, 0x080820, 5.0);
 			scene.add(hemiLight);
 
 			// 聚光灯（舞台追光，暖白色）
-			const spotLight = new THREE.SpotLight(0xffeedd, 80);
+			const spotLight = new THREE.SpotLight(0xffeedd, 145);
 			spotLight.position.set(5, 20, 15);
 			spotLight.angle = 0.8;
 			spotLight.penumbra = 0.8;
@@ -930,7 +938,7 @@
 			scene.add(spotLight.target);
 
 			// 方向光（主光源 + 阴影，暖白）
-			const directionalLight = new THREE.DirectionalLight(0xffeedd, 5);
+			const directionalLight = new THREE.DirectionalLight(0xffeedd, 1.5);
 			directionalLight.position.set(-15, 15, 20);
 			directionalLight.castShadow = true;
 			directionalLight.shadow.mapSize.width = 1024;
@@ -943,24 +951,24 @@
 			scene.add(directionalLight);
 
 			// 右侧补光（冷色，增加立体感）
-			const fillLight = new THREE.DirectionalLight(0x8888ff, 1.5);
+			const fillLight = new THREE.DirectionalLight(0x8888ff, 0.6);
 			fillLight.position.set(15, 10, -10);
 			scene.add(fillLight);
 
 			// 背光轮廓光
-			const rimLight = new THREE.DirectionalLight(0xffffff, 1.0);
+			const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
 			rimLight.position.set(0, 10, -20);
 			scene.add(rimLight);
 
 			// 环境光
-			const ambientLight = new THREE.AmbientLight(0x8888cc, 2.0);
+			const ambientLight = new THREE.AmbientLight(0x8888cc, 3.3);
 			scene.add(ambientLight);
 
 			// ===== 将舞台组添加到场景 =====
 			// ===== 地面 =====
 			const ground = new THREE.Mesh(
 				new THREE.CircleGeometry(50, 32),
-				new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide })
+				new THREE.MeshPhongMaterial({ color: 0x444444, side: THREE.FrontSide })
 			);
 			ground.rotation.x = -Math.PI / 2;
 			ground.receiveShadow = true;
@@ -968,6 +976,8 @@
 
 			// 网格辅助线
 			const gridHelper = new THREE.GridHelper(50, 25, 0x444466, 0x333355);
+			gridHelper.material.transparent = true;
+			gridHelper.material.opacity = 0.45;
 			gridHelper.position.y = 0.01;
 			scene.add(gridHelper);
 
@@ -983,12 +993,19 @@
 					stageGroup.add(beamsGroup);
 					stageGroup.add(monitorsGroup);
 
-					// 线框球体
-					wireframeSphere = new THREE.Mesh(
+					// 球体填充层
+					sphereFill = new THREE.Mesh(
+						new THREE.SphereGeometry(200, 32),
+						new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 })
+					);
+					stageGroup.add(sphereFill);
+
+					// 球体线框边框（保持线框渲染）
+					sphereWireframe = new THREE.Mesh(
 						new THREE.SphereGeometry(200, 32),
 						new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
 					);
-					stageGroup.add(wireframeSphere);
+					stageGroup.add(sphereWireframe);
 
 					// 3 块监视器
 					const monitorMat = new THREE.MeshBasicMaterial({ color: 0x2244aa, transparent: true, opacity: 0.3 });
@@ -1741,19 +1758,29 @@
 				gridHelper.material.needsUpdate = true;
 			});
 
-			// ===== 线框球体控制 =====
+			// ===== 球体控制 =====
 			document.getElementById('sphereColor').addEventListener('input', (e) => {
-				if (wireframeSphere) {
-					wireframeSphere.material.color.set(e.target.value);
+				if (sphereFill) {
+					sphereFill.material.color.set(e.target.value);
 				}
 			});
 			document.getElementById('sphereOpacity').addEventListener('input', (e) => {
-				if (wireframeSphere) {
+				if (sphereFill) {
 					const v = parseFloat(e.target.value);
 					document.getElementById('val-sphereOpacity').textContent = v.toFixed(2);
-					wireframeSphere.material.transparent = v < 1;
-					wireframeSphere.material.opacity = v;
+					sphereFill.material.transparent = v < 1;
+					sphereFill.material.opacity = v;
 				}
+			});
+			document.getElementById('sphereBorderColor').addEventListener('input', (e) => {
+				if (sphereWireframe) {
+					sphereWireframe.material.color.set(e.target.value);
+				}
+			});
+
+			// ===== 地面控制 =====
+			document.getElementById('groundColor').addEventListener('input', (e) => {
+				ground.material.color.set(e.target.value);
 			});
 
 			// ===== 渲染设置收集/应用 =====
@@ -1782,6 +1809,8 @@
 				gridOpacity: parseFloat(document.getElementById('gridOpacity').value),
 				sphereColor: document.getElementById('sphereColor').value,
 				sphereOpacity: parseFloat(document.getElementById('sphereOpacity').value),
+				sphereBorderColor: document.getElementById('sphereBorderColor').value,
+				groundColor: document.getElementById('groundColor').value,
 			};
 			}
 
@@ -1900,17 +1929,27 @@
 					document.getElementById('gridOpacity').value = v;
 					document.getElementById('val-gridOpacity').textContent = v.toFixed(2);
 				}
-				// 线框球体
-				if (data.sphereColor && wireframeSphere) {
-					wireframeSphere.material.color.set(data.sphereColor);
+				// 球体填充
+				if (data.sphereColor && sphereFill) {
+					sphereFill.material.color.set(data.sphereColor);
 					document.getElementById('sphereColor').value = data.sphereColor;
 				}
-				if (data.sphereOpacity !== undefined && wireframeSphere) {
+				if (data.sphereOpacity !== undefined && sphereFill) {
 					const v = data.sphereOpacity;
-					wireframeSphere.material.transparent = v < 1;
-					wireframeSphere.material.opacity = v;
+					sphereFill.material.transparent = v < 1;
+					sphereFill.material.opacity = v;
 					document.getElementById('sphereOpacity').value = v;
 					document.getElementById('val-sphereOpacity').textContent = v.toFixed(2);
+				}
+				// 球体边框
+				if (data.sphereBorderColor && sphereWireframe) {
+					sphereWireframe.material.color.set(data.sphereBorderColor);
+					document.getElementById('sphereBorderColor').value = data.sphereBorderColor;
+				}
+				// 地面
+				if (data.groundColor) {
+					ground.material.color.set(data.groundColor);
+					document.getElementById('groundColor').value = data.groundColor;
 				}
 			}
 
