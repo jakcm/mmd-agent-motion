@@ -1389,13 +1389,12 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：MMDToonMaterial (RawShaderMaterial) 不兼容 Three.js morph target shader
-											// MORPHTARGETS_COUNT 未定义导致"材質1"材质的 shader 编译失败（如白蛇缘起）
-											// 删除几何体 morphAttributes 避免 shader 包含 USE_MORPHTARGETS 块
-											// 但备份 morphTargetDictionary 供唇形同步使用
-											if (mesh.geometry?.morphAttributes?.position) {
-												mesh.__morphPositions = mesh.geometry.morphAttributes.position;
-												delete mesh.geometry.morphAttributes;
+											// 修复：MMDToonMaterial 的 raw shader 不兼容 Three.js morph target 系统
+											// 保留 geometry.morphAttributes 为空对象（PropertyBinding 需要存在），
+											// 但清除位置数据避免 shader 包含过大的 MORPHTARGETS_COUNT
+											if (mesh.geometry?.morphAttributes) {
+												mesh.__morphBackup = { position: mesh.geometry.morphAttributes.position };
+												mesh.geometry.morphAttributes = {};
 											}
 
 											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
