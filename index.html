@@ -1390,11 +1390,11 @@
 											mesh.receiveShadow = true;
 
 											// 修复：MMDToonMaterial 的 raw shader 不兼容 Three.js morph target 系统
-											// 保留 geometry.morphAttributes 为空对象（PropertyBinding 需要存在），
-											// 但清除位置数据避免 shader 包含过大的 MORPHTARGETS_COUNT
+											// 保留空 position 数组让 PropertyBinding 可用，但 MORPHTARGETS_COUNT=0
+											// 避免 shader 编译失败（如白蛇缘起模型大量 morph）
 											if (mesh.geometry?.morphAttributes) {
 												mesh.__morphBackup = { position: mesh.geometry.morphAttributes.position };
-												mesh.geometry.morphAttributes = {};
+												mesh.geometry.morphAttributes = { position: [] };
 											}
 
 											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
