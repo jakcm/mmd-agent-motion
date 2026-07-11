@@ -1389,34 +1389,18 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：某些 MMDToonMaterial (RawShaderMaterial) 的 morph target shader 在
-											// MORPHTARGETS_COUNT > WebGL 限制时编译失败（如白蛇缘起）
-											// 方案：限制 morphAttributes 数量到 WebGL 安全上限（32），保留索引映射
-											if (mesh.geometry?.morphAttributes?.position) {
-												const origPos = mesh.geometry.morphAttributes.position;
-												if (origPos.length > 32) {
-													// 过多 morph 时截断到 32（WebGL 常见安全上限）
-													// 备份原始数据，仅截断 position 避免 shader 溢出
-													const truncated = origPos.slice(0, 32);
-													mesh.geometry.morphAttributes.position = truncated;
-													// 重建 morphTargetInfluences 和 morphTargetDictionary
-													if (mesh.morphTargetInfluences) {
-														mesh.morphTargetInfluences = mesh.morphTargetInfluences.slice(0, 32);
-													}
-													if (mesh.morphTargetDictionary) {
-														const dict = mesh.morphTargetDictionary;
-														const newDict = {};
-														let count = 0;
-														for (const [name, idx] of Object.entries(dict)) {
-															if (idx < 32) { newDict[name] = idx; count++; }
-														}
-														// 至少保留前 32 个
-														for (const [name, idx] of Object.entries(dict)) {
-															if (!newDict[name] && Object.keys(newDict).length < 32) {
-																newDict[name] = idx;
-															}
-														}
-														mesh.morphTargetDictionary = newDict;
+											// 修复：MMDToonMaterial (RawShaderMaterial) 的 shader 中 MORPHTARGETS_COUNT
+											// define 未被 Three.js 注入（RawShaderMaterial 的特殊行为）
+											// 手动在 material.defines 上补全缺失的 define
+											if (mesh.geometry?.morphAttributes?.position?.length > 0) {
+												const morphCount = mesh.geometry.morphAttributes.position.length;
+												const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+												for (const mat of mats) {
+													if (!mat.defines) mat.defines = {};
+													if (!mat.defines.MORPHTARGETS_COUNT) {
+														mat.defines.MORPHTARGETS_COUNT = morphCount;
+														mat.defines.MORPHTARGETS_TEXTURE_STRIDE = 1;
+														mat.needsUpdate = true;
 													}
 												}
 											}
