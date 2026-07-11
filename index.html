@@ -1389,12 +1389,11 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：MMDToonMaterial (RawShaderMaterial) 在 morph 数量过多时
-											// MORPHTARGETS_COUNT 定义缺失导致 shader 编译失败（如白蛇缘起）
-											// 安全方案：morph <= 40 保留正常，> 40 直接删除（此类模型通常无标准日文元音命名）
+											// 修复：MMDToonMaterial 在 morph 数组为空或过大时 THREE 未正确注入
+											// MORPHTARGETS_COUNT define，导致 shader 编译失败
 											if (mesh.geometry?.morphAttributes?.position) {
 												const mc = mesh.geometry.morphAttributes.position.length;
-												if (mc > 40) {
+												if (mc === 0 || mc > 40) {
 													delete mesh.geometry.morphAttributes;
 													mesh.morphTargetDictionary = {};
 													mesh.morphTargetInfluences = [];
