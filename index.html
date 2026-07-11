@@ -1389,12 +1389,15 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：MMDToonMaterial 的 raw shader 不兼容 Three.js morph target 系统
-											// 保留空 position 数组让 PropertyBinding 可用，但 MORPHTARGETS_COUNT=0
-											// 避免 shader 编译失败（如白蛇缘起模型大量 morph）
+											// 修复：MMDToonMaterial 的 raw shader 不兼容 Three.js morph target shader
+											// 删除 morphAttributes.position（保留对象），使 setProgram 中
+											// morphTargets=false → 跳过 USE_MORPHTARGETS 块 → 避免 shader 编译失败
+											// PropertyBinding 仍可访问 morphAttributes 对象所以不会报错
 											if (mesh.geometry?.morphAttributes) {
 												mesh.__morphBackup = { position: mesh.geometry.morphAttributes.position };
-												mesh.geometry.morphAttributes = { position: [] };
+												delete mesh.geometry.morphAttributes.position;
+												delete mesh.geometry.morphAttributes.normal;
+												delete mesh.geometry.morphAttributes.color;
 											}
 
 											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
