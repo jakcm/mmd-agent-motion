@@ -1389,19 +1389,15 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：MMDToonMaterial (RawShaderMaterial) 的 shader 中 MORPHTARGETS_COUNT
-											// define 未被 Three.js 注入（RawShaderMaterial 的特殊行为）
-											// 手动在 material.defines 上补全缺失的 define
-											if (mesh.geometry?.morphAttributes?.position?.length > 0) {
-												const morphCount = mesh.geometry.morphAttributes.position.length;
-												const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-												for (const mat of mats) {
-													if (!mat.defines) mat.defines = {};
-													if (!mat.defines.MORPHTARGETS_COUNT) {
-														mat.defines.MORPHTARGETS_COUNT = morphCount;
-														mat.defines.MORPHTARGETS_TEXTURE_STRIDE = 1;
-														mat.needsUpdate = true;
-													}
+											// 修复：MMDToonMaterial (RawShaderMaterial) 在 morph 数量过多时
+											// MORPHTARGETS_COUNT 定义缺失导致 shader 编译失败（如白蛇缘起）
+											// 安全方案：morph <= 40 保留正常，> 40 直接删除（此类模型通常无标准日文元音命名）
+											if (mesh.geometry?.morphAttributes?.position) {
+												const mc = mesh.geometry.morphAttributes.position.length;
+												if (mc > 40) {
+													delete mesh.geometry.morphAttributes;
+													mesh.morphTargetDictionary = {};
+													mesh.morphTargetInfluences = [];
 												}
 											}
 
