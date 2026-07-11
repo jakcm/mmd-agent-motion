@@ -905,20 +905,11 @@
 					"three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
 				}
 			}
-		</script>
-		<script>
-			window.addEventListener("error", function(e) {
-				// 过滤 Three.js 内部非致命错误（geometry.morphAttributes 缺失时的 TypeError）
-				if (e.message && e.message.includes('morphAttributes') && e.message.includes('position')) {
-					e.preventDefault(); return;
-				}
-				console.error("RAW_ERR:", e.message, e.filename, e.lineno, e.colno);
-			});
-		</script>
+				</script>
 
-		<!-- ===== Service Worker 注册：资源缓存 ===== -->
-		<script>
-			if ('serviceWorker' in navigator) {
+				<!-- ===== Service Worker 注册：资源缓存 ===== -->
+				<script>
+					if ('serviceWorker' in navigator) {
 				window.addEventListener('load', () => {
 					navigator.serviceWorker.register('./sw.js')
 						.then((reg) => {
