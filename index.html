@@ -527,6 +527,125 @@
 					max-height: 340px;
 				}
 			}
+
+			/* ===== 唇形同步设置 ===== */
+			#morph-list {
+				font-size: 11px;
+				color: rgba(255,255,255,.5);
+				max-height: 80px;
+				overflow-y: auto;
+				margin-top: 4px;
+			}
+			#morph-list .morph-item {
+				padding: 2px 4px;
+				font-family: monospace;
+			}
+			#morph-list .morph-item.found { color: #6cff6c; }
+			#morph-list .morph-item.missing { color: rgba(255,255,255,.3); }
+			.test-morph-btn {
+				width: 100%;
+				padding: 8px;
+				border: 1px solid rgba(255,255,255,.1);
+				border-radius: 8px;
+				background: rgba(106,130,251,.15);
+				color: #8b9bff;
+				font-size: 12px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: background .2s;
+				margin-top: 4px;
+			}
+			.test-morph-btn:active { background: rgba(106,130,251,.3); }
+			.test-morph-btn.testing { opacity: .5; pointer-events: none; }
+
+			/* ===== 对话面板 ===== */
+			#chat-panel {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				z-index: 50;
+				pointer-events: none;
+			}
+			#chat-messages {
+				max-height: 25vh;
+				overflow-y: auto;
+				padding: 8px 16px 4px;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				pointer-events: auto;
+				background: transparent;
+				scrollbar-width: thin;
+			}
+			#chat-messages::-webkit-scrollbar { width: 3px; }
+			#chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 3px; }
+			.msg {
+				max-width: 78%;
+				padding: 6px 12px;
+				border-radius: 12px;
+				font-size: 13px;
+				line-height: 1.5;
+				word-break: break-word;
+				animation: msgIn .25s ease-out;
+				text-shadow: 0 1px 3px rgba(0,0,0,.8);
+			}
+			.msg.user {
+				align-self: flex-end;
+				background: rgba(108,99,255,.7);
+				color: #fff;
+				border-bottom-right-radius: 4px;
+			}
+			.msg.assistant {
+				align-self: flex-start;
+				background: rgba(255,255,255,.06);
+				color: #ddd;
+				border-bottom-left-radius: 4px;
+			}
+			.msg.system {
+				align-self: center;
+				font-size: 11px;
+				color: rgba(255,255,255,.3);
+				background: transparent;
+				text-align: center;
+			}
+			@keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+			#input-area {
+				display: flex;
+				gap: 8px;
+				padding: 6px 12px 12px;
+				pointer-events: auto;
+				background: linear-gradient(transparent, rgba(0,0,0,.55) 40%);
+			}
+			#input-area input {
+				flex: 1;
+				padding: 9px 13px;
+				border: 1px solid rgba(255,255,255,.1);
+				border-radius: 10px;
+				background: rgba(255,255,255,.07);
+				backdrop-filter: blur(6px);
+				-webkit-backdrop-filter: blur(6px);
+				color: #eee;
+				font-size: 14px;
+				outline: none;
+			}
+			#input-area input:focus { border-color: rgba(108,99,255,.4); }
+			#input-area input::placeholder { color: rgba(255,255,255,.2); }
+			#input-area button {
+				padding: 9px 16px;
+				border: none;
+				border-radius: 10px;
+				background: rgba(106,130,251,.8);
+				color: #fff;
+				font-size: 13px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: opacity .2s;
+				white-space: nowrap;
+			}
+			#input-area button:disabled { opacity: .3; cursor: not-allowed; }
+			#input-area button svg { width: 18px; height: 18px; display: block; }
 		</style>
 	</head>
 
@@ -634,6 +753,7 @@
 				<button class="render-tab active" data-tab="lighting">💡 光照</button>
 				<button class="render-tab" data-tab="camera">📷 相机</button>
 				<button class="render-tab" data-tab="render">✨ 渲染</button>
+				<button class="render-tab" data-tab="lipsync">💬 唇形同步</button>
 			</div>
 			<div class="render-content">
 				<!-- 光照 -->
@@ -742,6 +862,36 @@
 						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="groundColor" value="#444444"><span>色</span></div></div>
 					</div>
 				</div>
+
+				<!-- 唇形同步 -->
+				<div class="render-tab-content" id="tab-lipsync">
+					<div class="rp-setting">
+						<div class="rp-label"><span>OpenRouter API Key（可选 — 不填则只朗读文字）</span></div>
+						<input type="password" id="cfg-api-key" placeholder="sk-or-v1-...">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>LLM 模型 ID（可选）</span></div>
+						<input type="text" id="cfg-model-id" placeholder="openai/gpt-4o" value="openai/gpt-4o">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>Edge TTS 语音</span></div>
+						<input type="text" id="cfg-tts-voice" value="zh-CN-XiaoxiaoNeural" placeholder="zh-CN-XiaoxiaoNeural">
+					</div>
+					<button class="test-morph-btn" id="test-morph-btn">🎭 检测并测试当前模型的嘴型 morph</button>
+					<div id="morph-list"></div>
+					<div class="rp-actions" style="margin-top:8px">
+						<button id="save-lipsync-btn">💾 保存设置</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== 对话面板 ===== -->
+		<div id="chat-panel">
+			<div id="chat-messages"></div>
+			<div id="input-area">
+				<input id="text-input" type="text" placeholder="输入文字发送..." autocomplete="off">
+				<button id="send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
 			</div>
 		</div>
 
@@ -1602,7 +1752,7 @@
 				// ===== 直接渲染 =====
 				effect.render(scene, camera);	}
 
-			animate();
+				// 动画循环由唇形同步集成模块启动
 
 			// ===== 渲染设置面板 =====
 			const renderBtn = document.getElementById('renderBtn');
@@ -1630,7 +1780,8 @@
 			const rTabContents = {
 				lighting: document.getElementById('tab-lighting'),
 				camera: document.getElementById('tab-camera'),
-				render: document.getElementById('tab-render')
+				render: document.getElementById('tab-render'),
+				lipsync: document.getElementById('tab-lipsync')
 			};
 			rTabs.forEach(tab => {
 				tab.addEventListener('click', () => {
@@ -2022,6 +2173,558 @@
 				reader.readAsText(file);
 				e.target.value = '';
 			});
+
+			// ===== 唇形同步引擎 =====
+
+			// Edge TTS 常量
+			const EDGE_TTS_CFG = {
+				TRUSTED_CLIENT_TOKEN: '6A5AA1D4EAFF4E9FB37E23D68491D6F4',
+				WSS_URL: 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1',
+				VERSION_MS_GEC: '1-142.0.3595',
+			};
+
+			// MMD 嘴型 morph 检测
+			const VISEME_TO_MMD_KEYWORDS = [
+				{ viseme: 'aa', keywords: ['あ', 'a', 'AA', 'Ａ', 'Aa'] },
+				{ viseme: 'ih', keywords: ['い', 'イ', 'i', 'I', 'IH'] },
+				{ viseme: 'ou', keywords: ['う', 'ウ', 'u', 'U', 'OU'] },
+				{ viseme: 'ee', keywords: ['え', 'エ', 'e', 'E', 'EE'] },
+				{ viseme: 'oh', keywords: ['お', 'オ', 'o', 'O', 'OH'] },
+			];
+			const MOUTH_OPEN_KEYWORDS = ['ω□', 'ω', 'ワ', '▲', '∧'];
+
+			let meshLipsync = null;
+			let mouthMorphs = {};
+			let isSpeaking = false;
+			let isWaitingAI = false;
+
+			function detectMouthMorphs(targetMesh) {
+				const result = {};
+				if (!targetMesh || !targetMesh.morphTargetDictionary) return result;
+				const dict = targetMesh.morphTargetDictionary;
+				const names = Object.keys(dict);
+				for (const entry of VISEME_TO_MMD_KEYWORDS) {
+					for (const name of names) {
+						for (const kw of entry.keywords) {
+							if (name === kw || name.includes(kw)) {
+								result[entry.viseme] = { name, index: dict[name] };
+								break;
+							}
+						}
+						if (result[entry.viseme]) break;
+					}
+				}
+				for (const kw of MOUTH_OPEN_KEYWORDS) {
+					for (const name of names) {
+						if (name === kw || name.startsWith(kw)) {
+							result['_open'] = { name, index: dict[name] };
+							break;
+						}
+					}
+					if (result['_open']) break;
+				}
+				return result;
+			}
+
+			const MMD_VISEMES = ['aa', 'ih', 'ou', 'ee', 'oh'];
+			const LIP_ATTACK = 22;
+			const LIP_RELEASE = 9;
+			const LIP_VOWEL_PEAK = 0.85;
+			const LIP_OPEN_PEAK = 0.35;
+			let lipTarget = 'sil';
+			let lipWeights = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0, _open: 0 };
+			let lipApplied = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0, _open: 0 };
+
+			function setLipTarget(visemeType) {
+				lipTarget = MMD_VISEMES.includes(visemeType) ? visemeType : 'sil';
+			}
+
+			function tickLipCompositor(deltaSeconds) {
+				if (!meshLipsync?.morphTargetInfluences || !mouthMorphs) return;
+				const speed = lipTarget === 'sil' ? LIP_RELEASE : LIP_ATTACK;
+				const alpha = 1 - Math.exp(-speed * Math.max(deltaSeconds || 0, 0));
+				for (const key of MMD_VISEMES) {
+					const target = key === lipTarget ? LIP_VOWEL_PEAK : 0;
+					lipWeights[key] += (target - lipWeights[key]) * alpha;
+				}
+				const targetOpen = lipTarget === 'sil' ? 0 : LIP_OPEN_PEAK;
+				lipWeights._open += (targetOpen - lipWeights._open) * alpha;
+
+				for (const [key, info] of Object.entries(mouthMorphs)) {
+					if (typeof info?.index !== 'number') continue;
+					const base = Math.max(0, (meshLipsync.morphTargetInfluences[info.index] || 0) - (lipApplied[key] || 0));
+					const next = Math.max(base, lipWeights[key] || 0);
+					meshLipsync.morphTargetInfluences[info.index] = next;
+					lipApplied[key] = next - base;
+				}
+			}
+
+			function resetAllMouthMorphs() {
+				if (!meshLipsync?.morphTargetInfluences || !mouthMorphs) return;
+				lipTarget = 'sil';
+				for (const [key, info] of Object.entries(mouthMorphs)) {
+					if (typeof info?.index !== 'number') continue;
+					meshLipsync.morphTargetInfluences[info.index] = Math.max(0,
+						(meshLipsync.morphTargetInfluences[info.index] || 0) - (lipApplied[key] || 0));
+				}
+				for (const key of Object.keys(lipWeights)) { lipWeights[key] = 0; lipApplied[key] = 0; }
+			}
+
+			function visemeForToken(token) {
+				const s = String(token || '').toLowerCase();
+				if (!s || /^[\s，。！？、；：,.!?;:~～—-]$/.test(s)) return 'sil';
+				if (/^[\u4e00-\u9fff]$/.test(s)) return MMD_VISEMES[s.charCodeAt(0) % MMD_VISEMES.length];
+				if (/[a]/.test(s)) return 'aa';
+				if (/[e]/.test(s)) return 'ee';
+				if (/[i|y]/.test(s)) return 'ih';
+				if (/[o]/.test(s)) return 'oh';
+				if (/[u|w]/.test(s)) return 'ou';
+				if (/^(b|p|m|f|v)/.test(s)) return 'ou';
+				if (/^(d|t|l|n|s|z|c|x|j|q|r)/.test(s)) return 'ih';
+				if (/^(k|g|h)/.test(s)) return 'aa';
+				return 'aa';
+			}
+
+			function tokenizeForVisemes(word) {
+				const tokens = [];
+				const parts = String(word || '').match(/[\u4e00-\u9fff]|th|ch|sh|[a-zA-Z]+|\d/g) || [];
+				for (const part of parts) {
+					if (/^[a-zA-Z]+$/.test(part)) {
+						tokens.push(...(part.match(/th|ch|sh|[bcdfghjklmnpqrstvwxyz]+|[aeiouy]+/gi) || [part]));
+					} else { tokens.push(part); }
+				}
+				return tokens.length ? tokens : [word];
+			}
+
+			function buildVisemeSchedule(boundaries) {
+				const events = [];
+				for (const b of boundaries) {
+					const tokens = tokenizeForVisemes(b.word);
+					const totalDur = Math.max(b.durMs || 30, tokens.length * 60);
+					const slot = totalDur / Math.max(tokens.length, 1);
+					tokens.forEach((token, i) => {
+						events.push({ time: Math.round(b.startMs + i * slot), visemeType: visemeForToken(token) });
+					});
+				}
+				if (events.length === 0) return events;
+				events.sort((a, b) => a.time - b.time);
+				const deduped = [events[0]];
+				for (let i = 1; i < events.length; i++) {
+					if (events[i].time === deduped[deduped.length-1].time) {
+						deduped[deduped.length-1] = events[i];
+					} else { deduped.push(events[i]); }
+				}
+				return deduped;
+			}
+
+			function buildEstimatedSchedule(text) {
+				const events = [];
+				for (const [i, ch] of Array.from(text).entries()) {
+					events.push({ time: Math.round(i * 100), visemeType: visemeForToken(ch) });
+				}
+				return events;
+			}
+
+			function stretchSchedule(schedule, audioDurMs) {
+				const closeTime = Math.max(0, Math.round(audioDurMs) - 280);
+				if (schedule.length === 0) return [{ time: closeTime, visemeType: 'sil' }];
+				if (schedule.length === 1) return [{ ...schedule[0], time: 0 }, { time: closeTime, visemeType: 'sil' }];
+				const rawEnd = schedule[schedule.length - 1].time;
+				const firstTime = schedule[0].time;
+				const targetSpan = Math.max(0, audioDurMs * 0.98 - firstTime);
+				const ratio = rawEnd > firstTime ? targetSpan / (rawEnd - firstTime) : 1;
+				const stretched = schedule.map((e, i) => ({
+					...e, time: i === 0 ? Math.max(0, Math.round(e.time)) : Math.round(firstTime + (e.time - firstTime) * ratio)
+				}));
+				const lastTime = stretched[stretched.length - 1].time;
+				stretched.push({ time: Math.max(lastTime + 1, closeTime), visemeType: 'sil' });
+				return stretched;
+			}
+
+			// Edge TTS
+			function edgeTTSGenerateUUID() {
+				return 'xxxxxxxx-xxxx-xxxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+					const r = Math.random() * 16 | 0;
+					return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+				});
+			}
+
+			async function edgeTTSGenerateSecMsGec(token) {
+				const date = new Date();
+				const ticks = Math.floor(date.getTime() / 1000) + 11644473600;
+				const rounded = ticks - (ticks % 300);
+				const windowsTicks = rounded * 10000000;
+				const enc = new TextEncoder();
+				const h = await crypto.subtle.digest('SHA-256', enc.encode(`${windowsTicks}${token}`));
+				return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('').toUpperCase();
+			}
+
+			function edgeTTSCreateSSML(text, voice) {
+				return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="zh-CN"><voice name="${voice}"><prosody rate="0%" pitch="0Hz">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}</prosody></voice></speak>`;
+			}
+
+			function edgeTTSBuildConfig() {
+				const ts = new Date().toUTCString();
+				return `X-Timestamp:${ts}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":false,"wordBoundaryEnabled":true},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`;
+			}
+
+			function edgeTTSFindAudio(arr) {
+				const needle = new TextEncoder().encode('Path:audio\r\n');
+				for (let i = 0; i <= arr.length - needle.length; i++) {
+					let match = true;
+					for (let j = 0; j < needle.length; j++) { if (arr[i + j] !== needle[j]) { match = false; break; } }
+					if (match) return i + needle.length;
+				}
+				return -1;
+			}
+
+			function edgeTTSParseWordBoundary(textMsg) {
+				try {
+					const parts = textMsg.split('\r\n\r\n');
+					if (parts.length < 2) return null;
+					const json = JSON.parse(parts[parts.length - 1]);
+					let item = json;
+					if (Array.isArray(json.Metadata)) {
+						item = json.Metadata.find(m => String(m.Type || m.type || '').toLowerCase() === 'wordboundary');
+						if (!item) return null;
+					}
+					const et = String(item.Type || item.type || '').toLowerCase();
+					if (et !== 'wordboundary') return null;
+					let word, offset, duration;
+					if (item.Data && item.Data.text) {
+						word = item.Data.text.Text || item.Data.text.text;
+						offset = item.Data.Offset || 0; duration = item.Data.Duration || 0;
+					} else {
+						word = item.Text || item.text || '';
+						offset = item.Offset !== undefined ? item.Offset : (item.offset || 0);
+						duration = item.Duration !== undefined ? item.Duration : (item.duration || 0);
+					}
+					const bt = (item.Data?.text?.BoundaryType || item.boundaryType || '').toLowerCase();
+					if (bt === 'sentence' || !word || !word.trim()) return null;
+					return { word: word.trim(), startMs: offset / 10000, durMs: duration / 10000 };
+				} catch (e) { return null; }
+			}
+
+			async function edgeTTSSpeak(text) {
+				const voice = document.getElementById('cfg-tts-voice')?.value || 'zh-CN-XiaoxiaoNeural';
+				const secMsGEC = await edgeTTSGenerateSecMsGec(EDGE_TTS_CFG.TRUSTED_CLIENT_TOKEN);
+				const reqId = edgeTTSGenerateUUID();
+				const url = `${EDGE_TTS_CFG.WSS_URL}?TrustedClientToken=${EDGE_TTS_CFG.TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC=${secMsGEC}&Sec-MS-GEC-Version=${EDGE_TTS_CFG.VERSION_MS_GEC}&ConnectionId=${reqId}`;
+				const ws = new WebSocket(url);
+				const audioChunks = [];
+				const boundaries = [];
+				let pendingReads = 0;
+				await new Promise((resolve, reject) => {
+					const timeout = setTimeout(() => { ws.close(); reject(new Error('Edge TTS timeout')); }, 30000);
+					ws.onopen = () => { ws.send(edgeTTSBuildConfig()); ws.send(`X-RequestId:${reqId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${new Date().toUTCString()}\r\nPath:ssml\r\n\r\n${edgeTTSCreateSSML(text, voice)}`); };
+					ws.onmessage = (event) => {
+						if (typeof event.data === 'string') {
+							if (event.data.includes('Path:turn.end')) { ws.close(); return; }
+							const wb = edgeTTSParseWordBoundary(event.data);
+							if (wb) boundaries.push(wb);
+						} else {
+							pendingReads++;
+							const reader = new FileReader();
+							reader.onload = () => { const arr = new Uint8Array(reader.result); const s = edgeTTSFindAudio(arr); if (s !== -1) audioChunks.push(arr.slice(s)); pendingReads--; };
+							reader.readAsArrayBuffer(event.data);
+						}
+					};
+					ws.onerror = () => { clearTimeout(timeout); reject(new Error('Edge TTS WS error')); };
+					ws.onclose = () => {
+						clearTimeout(timeout);
+						const waitReads = () => { if (pendingReads > 0) setTimeout(waitReads, 10); else resolve(); };
+						waitReads();
+					};
+				});
+				const total = audioChunks.reduce((a, c) => a + c.length, 0);
+				const combined = new Uint8Array(total);
+				let off = 0;
+				for (const chunk of audioChunks) { combined.set(chunk, off); off += chunk.length; }
+				if (combined.length === 0) throw new Error('No audio received');
+				return { audioBuffer: combined.buffer, boundaries };
+			}
+
+			// 唇形同步调度器
+			let lipSyncCtx = null;
+			function getLipSyncCtx() { if (!lipSyncCtx) lipSyncCtx = new AudioContext(); return lipSyncCtx; }
+
+			let lipSyncRunning = false;
+			let lipSyncRAF = null;
+			let visemeSchedule = [];
+			let audioStartTime = 0;
+			let scheduleIndex = 0;
+			let speakingEndTime = 0;
+
+			function startLipSync(schedule, audioBuffer) {
+				if (lipSyncRunning) stopLipSync();
+				const ctx = getLipSyncCtx();
+				if (ctx.state === 'suspended') ctx.resume();
+				const source = ctx.createBufferSource();
+				source.buffer = audioBuffer;
+				source.connect(ctx.destination);
+				audioStartTime = ctx.currentTime + 0.05;
+				visemeSchedule = schedule;
+				scheduleIndex = 0;
+				lipSyncRunning = true;
+				isSpeaking = true;
+				speakingEndTime = audioStartTime + audioBuffer.duration + 0.65;
+				source.onended = () => {
+					setLipTarget('sil');
+					setTimeout(() => stopLipSync(), 260);
+				};
+				source.start(audioStartTime);
+				lipSyncLoop();
+			}
+
+			function lipSyncLoop() {
+				if (!lipSyncRunning) return;
+				const elapsedMs = (getLipSyncCtx().currentTime - audioStartTime) * 1000;
+				if (getLipSyncCtx().currentTime >= speakingEndTime) { stopLipSync(); return; }
+				let newViseme = null;
+				while (scheduleIndex < visemeSchedule.length) {
+					const ev = visemeSchedule[scheduleIndex];
+					if (elapsedMs >= ev.time) { newViseme = ev.visemeType; scheduleIndex++; } else break;
+				}
+				if (newViseme !== null) setLipTarget(newViseme);
+				lipSyncRAF = requestAnimationFrame(lipSyncLoop);
+			}
+
+			function stopLipSync() {
+				lipSyncRunning = false;
+				if (lipSyncRAF) { cancelAnimationFrame(lipSyncRAF); lipSyncRAF = null; }
+				resetAllMouthMorphs();
+				isSpeaking = false;
+				scheduleIndex = 0;
+				visemeSchedule = [];
+				updateSendBtn();
+			}
+
+			// ===== 说话功能 =====
+			async function speakText(text) {
+				if (!text || !text.trim() || isSpeaking) return;
+				try {
+					const result = await edgeTTSSpeak(text);
+					const audioCtx = getLipSyncCtx();
+					const audioBuffer = await audioCtx.decodeAudioData(result.audioBuffer);
+					const schedule = stretchSchedule(buildVisemeSchedule(result.boundaries), audioBuffer.duration * 1000);
+					startLipSync(schedule, audioBuffer);
+				} catch (e) {
+					console.error('TTS error:', e);
+					// 兜底：浏览器内置语音合成
+					if (window.speechSynthesis) {
+						const u = new SpeechSynthesisUtterance(text);
+						u.lang = 'zh-CN';
+						u.onstart = () => { isSpeaking = true; };
+						u.onend = () => { isSpeaking = false; };
+						window.speechSynthesis.speak(u);
+					}
+				}
+			}
+
+			// ===== OpenRouter LLM 对话 =====
+			let chatHistory = [];
+
+			function getApiKey() { return document.getElementById('cfg-api-key')?.value?.trim() || ''; }
+			function getModelId() { return document.getElementById('cfg-model-id')?.value?.trim() || 'openai/gpt-4o'; }
+
+			async function callLLM(userText) {
+				const apiKey = getApiKey();
+				if (!apiKey) return null;
+				chatHistory.push({ role: 'user', content: userText });
+				try {
+					const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+						method: 'POST',
+						headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							model: getModelId(),
+							messages: [
+								{ role: 'system', content: '你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。' },
+								...chatHistory.slice(-20)
+							],
+							max_tokens: 300,
+							temperature: 0.8
+						})
+					});
+					if (!resp.ok) throw new Error('API error: ' + resp.status);
+					const json = await resp.json();
+					const reply = json.choices?.[0]?.message?.content?.trim() || '';
+					if (reply) chatHistory.push({ role: 'assistant', content: reply });
+					return reply;
+				} catch (e) {
+					console.error('LLM error:', e);
+					return null;
+				}
+			}
+
+			// ===== 聊天 UI =====
+			const chatMessagesEl = document.getElementById('chat-messages');
+			const textInput = document.getElementById('text-input');
+			const sendBtn = document.getElementById('send-btn');
+
+			function addMessage(text, role) {
+				if (!chatMessagesEl) return;
+				const div = document.createElement('div');
+				div.className = 'msg ' + role;
+				div.textContent = text;
+				chatMessagesEl.appendChild(div);
+				chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+			}
+
+			function updateSendBtn() {
+				if (!sendBtn) return;
+				const loading = isWaitingAI || isSpeaking;
+				sendBtn.disabled = loading;
+				sendBtn.style.opacity = loading ? '0.4' : '1';
+			}
+
+			async function handleSend() {
+				const text = textInput?.value?.trim();
+				if (!text) return;
+				textInput.value = '';
+				addMessage(text, 'user');
+
+				const apiKey = getApiKey();
+				if (apiKey) {
+					// LLM 多轮对话模式
+					isWaitingAI = true;
+					updateSendBtn();
+					addMessage('思考中...', 'system');
+					const reply = await callLLM(text);
+					// 移除"思考中"提示
+					const sysMsg = chatMessagesEl?.querySelector('.msg.system:last-child');
+					if (sysMsg) sysMsg.remove();
+					isWaitingAI = false;
+					if (reply) {
+						addMessage(reply, 'assistant');
+						speakText(reply);
+					} else {
+						addMessage('抱歉，AI 回复失败，请检查 API Key 和网络连接', 'system');
+					}
+				} else {
+					// 无 API Key：直接朗读
+					speakText(text);
+				}
+				updateSendBtn();
+			}
+
+			if (sendBtn) { sendBtn.addEventListener('click', handleSend); }
+			if (textInput) {
+				textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSend(); });
+			}
+
+			// ===== 嘴型检测与测试 =====
+			function describeMouthMorphs(m) {
+				const parts = [];
+				const displayKeys = ['aa','ih','ou','ee','oh','_open'];
+				for (const key of displayKeys) {
+					if (m[key]) parts.push(`${key}→${m[key].name}[${m[key].index}]`);
+				}
+				return parts.join(', ') || '未检测到嘴型 morph';
+			}
+
+			document.getElementById('test-morph-btn')?.addEventListener('click', () => {
+				const btn = document.getElementById('test-morph-btn');
+				const list = document.getElementById('morph-list');
+				if (!btn || !list) return;
+				const targetMesh = currentMesh;
+				if (!targetMesh) { list.innerHTML = '<div class="morph-item missing">⚠️ 请先加载模型</div>'; return; }
+				btn.classList.add('testing');
+				btn.textContent = '🎭 正在检测...';
+				const detected = detectMouthMorphs(targetMesh);
+				mouthMorphs = detected;
+				meshLipsync = targetMesh;
+				const found = Object.keys(detected).filter(k => k !== '_open').length;
+				let html = '<div class="morph-item">检测到 ' + found + '/5 个元音 morph</div>';
+				const displayKeys = ['aa','ih','ou','ee','oh','_open'];
+				for (const key of displayKeys) {
+					if (detected[key]) {
+						html += '<div class="morph-item found">✓ ' + key + ' → ' + detected[key].name + '</div>';
+					} else {
+						html += '<div class="morph-item missing">✗ ' + key + ' — 未找到</div>';
+					}
+				}
+				list.innerHTML = html;
+				btn.textContent = '🎭 测试嘴型（循环测试每个元音）';
+				btn.classList.remove('testing');
+				// 循环测试
+				let testIdx = 0;
+				const testKeys = MMD_VISEMES.filter(k => detected[k]);
+				if (testKeys.length > 0) {
+					const testInterval = setInterval(() => {
+						if (!meshLipsync || !mouthMorphs) { clearInterval(testInterval); return; }
+						const key = testKeys[testIdx % testKeys.length];
+						setLipTarget(key);
+						// 播放 500ms 后闭嘴
+						setTimeout(() => setLipTarget('sil'), 400);
+						testIdx++;
+						if (testIdx >= testKeys.length * 3) clearInterval(testInterval);
+					}, 600);
+				}
+			});
+
+			// ===== 保存唇形同步设置 =====
+			document.getElementById('save-lipsync-btn')?.addEventListener('click', () => {
+				try {
+					const apiKey = document.getElementById('cfg-api-key')?.value || '';
+					const modelId = document.getElementById('cfg-model-id')?.value || '';
+					const ttsVoice = document.getElementById('cfg-tts-voice')?.value || '';
+					localStorage.setItem('mmd_lipsync_settings', JSON.stringify({ apiKey, modelId, ttsVoice }));
+				} catch(e) { console.warn('Save lipsync settings failed:', e); }
+			});
+
+			// ===== 从 localStorage 加载唇形同步设置 =====
+			(function() {
+				try {
+					const saved = localStorage.getItem('mmd_lipsync_settings');
+					if (saved) {
+						const data = JSON.parse(saved);
+						const apiKeyEl = document.getElementById('cfg-api-key');
+						const modelIdEl = document.getElementById('cfg-model-id');
+						const ttsVoiceEl = document.getElementById('cfg-tts-voice');
+						if (apiKeyEl && data.apiKey) apiKeyEl.value = data.apiKey;
+						if (modelIdEl && data.modelId) modelIdEl.value = data.modelId;
+						if (ttsVoiceEl && data.ttsVoice) ttsVoiceEl.value = data.ttsVoice;
+					}
+				} catch(e) { console.warn('Load lipsync settings failed:', e); }
+			})();
+
+			// ===== 在模型加载后自动检测嘴型 =====
+			const origModelLoad = loadMMDModel;
+			loadMMDModel = async function(modelUrl, modelName) {
+				await origModelLoad(modelUrl, modelName);
+				if (currentMesh) {
+					setTimeout(() => {
+						const detected = detectMouthMorphs(currentMesh);
+						if (Object.keys(detected).filter(k => k !== '_open').length > 0) {
+							mouthMorphs = detected;
+							meshLipsync = currentMesh;
+							console.log('[Lipsync] Auto-detected morphs:', describeMouthMorphs(detected));
+						}
+					}, 500);
+				}
+			};
+
+			// ===== 集成到动画循环：在 render 前 tick 唇形合成器 =====
+			const origAnimate = animate;
+			animate = function() {
+				requestAnimationFrame(animate);
+				const delta = clock.getDelta();
+				if (isReady && currentHelper && isPlaying && !isPaused) {
+					currentHelper.update(delta);
+				}
+				// tick 唇形合成器（在 VMD 动画更新后，渲染前）
+				tickLipCompositor(delta);
+				if (currentMesh) {
+					spotLight.target.position.set(
+						currentMesh.position.x,
+						currentMesh.position.y + 10,
+						currentMesh.position.z
+					);
+				}
+				controls.update();
+				effect.render(scene, camera);
+			};
+			animate();
 
 			// ===== 从 localStorage 恢复 =====
 			(function() {
