@@ -2515,7 +2515,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-9 loaded');
+			console.log('[App] MMD Agent v2026-07-12-10 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -2863,52 +2863,55 @@
 							messages: [
 								{ role: 'system', content: `你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。
 
-当用户要求你做出动作（如挥手、鞠躬、点头、跳舞、鼓掌等），在回复末尾用 [MPL:...] 标记包含一段 MPL 代码。
+当用户要求你做动作，在回复末尾用 [MPL:...] 标记。
 
-MPL 语法格式:
-@pose 动作名 { 骨骼名 动作 方向 角度; }
-@animation 动画名 { 时间点: 姿势名; }
-main { 动画名; }
+MPL 代码只允许以下4种行，其他任何内容都不要写：
+① @pose 姿势名 { — 开始定义姿势
+② 骨骼指令（见下表）;
+③ } — 结束姿势定义
+④ @animation 动画名 { 时间:姿势名; ... } main{动画名;}
 
-骨骼名: arm_r, arm_l, elbow_r, elbow_l, wrist_r, wrist_l, shoulder_r, shoulder_l, leg_r, leg_l, knee_r, knee_l, head, neck, upper_body, lower_body, center, waist
-动作与方向的合法组合（严格遵守！）:
-- head: bend forward/backward, turn left/right（不支持 turn up/down, sway）
-- neck: bend forward/backward, turn left/right（不支持 turn up/down, sway）
-- arm_r/arm_l: bend forward/backward, sway left/right, turn left/right（不支持 turn up/down）
-- shoulder_r/shoulder_l: bend forward/backward, sway left/right（不支持 turn）
-- elbow_r/elbow_l: 只支持 bend forward
-- wrist_r/wrist_l: bend forward/backward, turn left/right（不支持 sway）
-- knee_r/knee_l: 只支持 bend backward
-- leg_r/leg_l: bend forward/backward（不支持 sway/turn）
-- upper_body/lower_body: bend forward/backward, sway left/right（不支持 turn）
-- center: move only（不支持其他动作）
-- waist: bend forward/backward, sway left/right
-角度: 人体工学范围内(建议15-80)
+完整合法骨骼指令表（只能用下面列出的，其他都不要写）：
+- head bend forward <角度>; head bend backward <角度>; head turn left <角度>; head turn right <角度>; head reset;
+- neck bend forward <角度>; neck bend backward <角度>; neck turn left <角度>; neck turn right <角度>; neck reset;
+- arm_r bend forward <角度>; arm_r bend backward <角度>; arm_r sway left <角度>; arm_r sway right <角度>; arm_r turn left <角度>; arm_r turn right <角度>; arm_r reset;
+- arm_l bend forward <角度>; arm_l bend backward <角度>; arm_l sway left <角度>; arm_l sway right <角度>; arm_l turn left <角度>; arm_l turn right <角度>; arm_l reset;
+- shoulder_r bend forward <角度>; shoulder_r bend backward <角度>; shoulder_r sway left <角度>; shoulder_r sway right <角度>; shoulder_r reset;
+- shoulder_l bend forward <角度>; shoulder_l bend backward <角度>; shoulder_l sway left <角度>; shoulder_l sway right <角度>; shoulder_l reset;
+- elbow_r bend forward <角度>; elbow_r reset;
+- elbow_l bend forward <角度>; elbow_l reset;
+- wrist_r bend forward <角度>; wrist_r bend backward <角度>; wrist_r turn left <角度>; wrist_r turn right <角度>; wrist_r reset;
+- wrist_l bend forward <角度>; wrist_l bend backward <角度>; wrist_l turn left <角度>; wrist_l turn right <角度>; wrist_l reset;
+- knee_r bend backward <角度>; knee_r reset;
+- knee_l bend backward <角度>; knee_l reset;
+- leg_r bend forward <角度>; leg_r bend backward <角度>; leg_r reset;
+- leg_l bend forward <角度>; leg_l bend backward <角度>; leg_l reset;
+- upper_body bend forward <角度>; upper_body bend backward <角度>; upper_body sway left <角度>; upper_body sway right <角度>; upper_body reset;
+- lower_body bend forward <角度>; lower_body bend backward <角度>; lower_body sway left <角度>; lower_body sway right <角度>; lower_body reset;
+- center move forward <角度>; center move backward <角度>; center move left <角度>; center move right <角度>; center move up <角度>; center move down <角度>; center reset;
+- waist bend forward <角度>; waist bend backward <角度>; waist sway left <角度>; waist sway right <角度>; waist reset;
+角度范围15-80。
 
-动画设计原则（重要！）:
-1. 每个动作都要有 rest（自然站姿）作为起始和结束帧，不要从非自然姿势开始
-2. 动作要有「预备→执行→收回」三个阶段，不能只有两个极端姿势
-3. 肩膀、上半身需要轻微配合（反向或同向微动），不要只动手臂
-4. 头部配合微动增加真实感
-5. 时间间隔建议0.2-0.4秒，太快会抽搐，太慢会拖沓
-6. 结束帧必须回到自然站姿（大部分骨骼 reset 或极小角度）
+严格禁止：
+- 不要使用上表以外的骨骼名（如hip, thigh, torso, chest, spine, foot, hand, forearm等都不要用）
+- 不要使用上表以外的动作（如turn up, turn down, rotate, lean, twist, lift, raise, lower, kick, step等都不要用）
+- 不要在MPL代码中写注释、说明文字、换行注解
+- 不要写 @rest, @end 等不存在的指令
 
-示例:
-挥手(多帧+身体配合): [MPL:@pose rest{shoulder_r reset;arm_r reset;elbow_r reset;wrist_r reset;upper_body reset;head reset;}@pose w1{shoulder_r bend forward 25,sway left 5;arm_r bend forward 75,sway left 20;elbow_r bend forward 25;wrist_r turn right 20;upper_body sway left 3;head turn right 5,bend backward 3;}@pose w2{shoulder_r bend forward 15;arm_r bend forward 55,sway left 15;elbow_r bend forward 60;wrist_r turn left 15;upper_body sway left 2;}@animation wa{0:rest;0.15:w1;0.4:w2;0.65:w1;0.9:w2;1.1:w1;1.3:rest;}main{wa;}]
-鞠躬(含收回): [MPL:@pose rest2{upper_body reset;neck reset;head reset;lower_body reset;}@pose b1{upper_body bend forward 35;neck bend forward 18;head bend forward 12;lower_body bend forward 3;}@pose b2{upper_body bend forward 42;neck bend forward 22;head bend forward 18;lower_body bend forward 5;}@animation bow{0:rest2;0.3:b1;0.5:b2;1.0:b2;1.3:b1;1.6:rest2;}main{bow;}]
-点头(多帧节奏): [MPL:@pose rest3{neck reset;head reset;}@pose n1{neck bend forward 22;head bend forward 18;}@pose n2{neck bend backward 5;head bend backward 6;}@animation nd{0:rest3;0.15:n1;0.35:n2;0.5:n1;0.7:n2;0.85:n1;1.0:rest3;}main{nd;}]
+动画设计原则：
+1. 每个动画必须以 rest 姿势开始和结束
+2. 动作要有「预备→执行→收回」三阶段
+3. 肩膀、上半身配合微动（3-10度）
+4. 时间间隔0.2-0.4秒
+5. 结束必须回到 rest
 
-当用户要求你做表情（如大笑、生气、悲伤、惊讶、害羞等），在回复末尾用 [EXPR:...] 标记。
-格式: [EXPR:morph名 权重; morph名2 权重2]，权重范围 0-1。
-用 reset 可重置所有表情: [EXPR:reset]
+示例（走路）:
+[MPL:@pose rest_c{center reset;leg_r reset;leg_l reset;upper_body reset;}@pose walk1{center move forward 15;leg_r bend forward 40;leg_l bend backward 20;upper_body sway left 3;}@pose walk2{center move forward 15;leg_l bend forward 40;leg_r bend backward 20;upper_body sway right 3;}@animation walk{0:rest_c;0.3:walk1;0.6:rest_c;0.9:walk2;1.2:rest_c;}main{walk;}]
 
-表情示例:
-开心/大笑: [EXPR:笑 0.9] (具体morph名因模型而异，如 笑い/Happy/Joy 等)
-惊讶: [EXPR:驚 0.8]
-害羞: [EXPR:照れ 0.7]
-平静: [EXPR:reset]
-可以组合: [EXPR:笑 0.8;照れ 0.3]
-也可以动作+表情组合使用，同时包含两个标记即可。` },
+当用户要求做表情，在回复末尾用 [EXPR:...] 标记。
+格式: [EXPR:morph名 权重; morph名2 权重2]，权重0-1。
+示例: [EXPR:笑 0.9] [EXPR:驚 0.8] [EXPR:照れ 0.7] [EXPR:reset]
+可组合: [EXPR:笑 0.8;照れ 0.3]` },
 								...chatHistory.slice(-20)
 							],
 							max_tokens: 1000,
@@ -3365,7 +3368,7 @@ main { 动画名; }
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-9 MPL 流式+验证+语句过滤';
+			document.getElementById('versionBadge').textContent = '2026-07-12-10 MPL 完整语法提示词+语句过滤';
 		</script>
 	</body>
 </html>
