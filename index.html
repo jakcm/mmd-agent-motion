@@ -611,12 +611,34 @@
 			}
 			@keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 			.msg-mpl {
-				font-size: 11px;
-				color: rgba(139, 155, 255, 0.6);
-				background: rgba(106, 130, 251, 0.08);
-				border-radius: 6px;
-				padding: 4px 8px;
 				margin-top: 4px;
+				border-radius: 6px;
+				overflow: hidden;
+			}
+			.msg-mpl summary {
+				font-size: 11px;
+				color: rgba(139, 155, 255, 0.5);
+				cursor: pointer;
+				padding: 2px 0;
+				outline: none;
+				user-select: none;
+				-webkit-user-select: none;
+			}
+			.msg-mpl summary::-webkit-details-marker { display: none; }
+			.msg-mpl summary::marker { content: ''; }
+			.msg-mpl summary::before {
+				content: '▸ ';
+				display: inline;
+				transition: transform 0.2s;
+			}
+			.msg-mpl[open] summary::before { content: '▾ '; }
+			.msg-mpl .mpl-code {
+				font-size: 11px;
+				color: rgba(139, 155, 255, 0.55);
+				background: rgba(106, 130, 251, 0.06);
+				border-radius: 4px;
+				padding: 4px 8px;
+				margin-top: 2px;
 				font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
 				line-height: 1.4;
 				word-break: break-all;
@@ -995,10 +1017,9 @@
 						loader.loadAnimation(url, currentMesh, (animation) => {
 							URL.revokeObjectURL(url);
 
-							// ===== 通用平滑优化：对所有关键帧轨道应用 smooth 插值 =====
-							// 这让所有 MPL 生成的动作都有自然的缓入缓出，而不是生硬的线性过渡
+							// ===== 插值模式：使用线性避免短动画的 Catmull-Rom 过冲抖动 =====
 							animation.tracks.forEach(track => {
-								track.setInterpolation(THREE.InterpolateSmooth);
+								track.setInterpolation(THREE.InterpolateLinear);
 							});
 
 							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
@@ -2753,10 +2774,22 @@ main { 动画名; }
 示例:
 挥手(多帧+身体配合): [MPL:@pose rest{shoulder_r reset;arm_r reset;elbow_r reset;wrist_r reset;upper_body reset;head reset;}@pose w1{shoulder_r bend forward 25,sway left 5;arm_r bend forward 75,sway left 20;elbow_r bend forward 25;wrist_r turn right 20;upper_body sway left 3;head turn right 5,bend backward 3;}@pose w2{shoulder_r bend forward 15;arm_r bend forward 55,sway left 15;elbow_r bend forward 60;wrist_r turn left 15;upper_body sway left 2;}@animation wa{0:rest;0.15:w1;0.4:w2;0.65:w1;0.9:w2;1.1:w1;1.3:rest;}main{wa;}]
 鞠躬(含收回): [MPL:@pose rest2{upper_body reset;neck reset;head reset;lower_body reset;}@pose b1{upper_body bend forward 35;neck bend forward 18;head bend forward 12;lower_body bend forward 3;}@pose b2{upper_body bend forward 42;neck bend forward 22;head bend forward 18;lower_body bend forward 5;}@animation bow{0:rest2;0.3:b1;0.5:b2;1.0:b2;1.3:b1;1.6:rest2;}main{bow;}]
-点头(多帧节奏): [MPL:@pose rest3{neck reset;head reset;}@pose n1{neck bend forward 22;head bend forward 18;}@pose n2{neck bend backward 5;head bend backward 6;}@animation nd{0:rest3;0.15:n1;0.35:n2;0.5:n1;0.7:n2;0.85:n1;1.0:rest3;}main{nd;}]` },
+点头(多帧节奏): [MPL:@pose rest3{neck reset;head reset;}@pose n1{neck bend forward 22;head bend forward 18;}@pose n2{neck bend backward 5;head bend backward 6;}@animation nd{0:rest3;0.15:n1;0.35:n2;0.5:n1;0.7:n2;0.85:n1;1.0:rest3;}main{nd;}]
+
+当用户要求你做表情（如大笑、生气、悲伤、惊讶、害羞等），在回复末尾用 [EXPR:...] 标记。
+格式: [EXPR:morph名 权重; morph名2 权重2]，权重范围 0-1。
+用 reset 可重置所有表情: [EXPR:reset]
+
+表情示例:
+开心/大笑: [EXPR:笑 0.9] (具体morph名因模型而异，如 笑い/Happy/Joy 等)
+惊讶: [EXPR:驚 0.8]
+害羞: [EXPR:照れ 0.7]
+平静: [EXPR:reset]
+可以组合: [EXPR:笑 0.8;照れ 0.3]
+也可以动作+表情组合使用，同时包含两个标记即可。` },
 								...chatHistory.slice(-20)
 							],
-							max_tokens: 800,
+							max_tokens: 1000,
 							temperature: 0.7
 						})
 					});
@@ -2813,24 +2846,30 @@ main { 动画名; }
 					if (reply) {
 							// 先剥除 <think> 块（推理模型会输出思考过程，里面常含 [MPL:...] 示例干扰匹配）
 							const visibleReply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-							// 解析 [MPL:...] 标记
+							// 解析 [MPL:...] 和 [EXPR:...] 标记
 							const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
-							if (mplMatch && mplMatch[1]) {
-								const mplCode = mplMatch[1].trim();
-								// 清洗文本（去掉 MPL 标记）
-								const cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').trim();
-								// ① 先触发 TTS（不 await，后台播放），让数字人尽快开口
+							const exprMatch = visibleReply.match(/\[EXPR:([\s\S]*?)\]/);
+							const mplCode = mplMatch?.[1]?.trim() || '';
+							const exprCode = exprMatch?.[1]?.trim() || '';
+							// 清洗文本
+							let cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').replace(/\[EXPR:[\s\S]*?\]/, '').trim();
+							const hasAction = mplCode || exprCode;
+
+							if (hasAction) {
+								// ① 先触发 TTS
 								if (cleanReply) speakText(cleanReply);
-								// ② 显示到对话区
-								const mplHtml = '<div>' + (cleanReply || '(执行动作中…)') + '</div>'
-									+ '<div class="msg-mpl">🎬 ' + mplCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div>';
-								addMessage(null, 'assistant', mplHtml);
-								// ③ 执行 MPL 动作（不阻塞 TTS）
-								executeMPL(mplCode).then(ok => {
-									if (!ok) addMessage('⚠️ 动作执行失败', 'system');
-								});
+								// ② 显示到对话区（MPL + EXPR 折叠）
+								let actionHtml = '';
+								if (mplCode) actionHtml += '<details class="msg-mpl"><summary>🎬 动作</summary><div class="mpl-code">'
+									+ mplCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div></details>';
+								if (exprCode) actionHtml += '<details class="msg-mpl"><summary>😊 表情</summary><div class="mpl-code">'
+									+ exprCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div></details>';
+								const html = '<div>' + (cleanReply || '(执行动作中…)') + '</div>' + actionHtml;
+								addMessage(null, 'assistant', html);
+								// ③ 执行动作（不阻塞）
+								if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败', 'system'); });
+								if (exprCode) executeExpression(exprCode);
 							} else {
-								// 纯文本回复（同样先 TTS 再显示）
 								speakText(visibleReply);
 								addMessage(visibleReply, 'assistant');
 							}
@@ -2870,6 +2909,7 @@ main { 动画名; }
 				const detected = detectMouthMorphs(targetMesh);
 				mouthMorphs = detected;
 				meshLipsync = targetMesh;
+				detectAllMorphs(targetMesh);
 				const found = Object.keys(detected).filter(k => k !== '_open').length;
 				let html = '<div class="morph-item">检测到 ' + found + '/5 个元音 morph</div>';
 				const displayKeys = ['aa','ih','ou','ee','oh','_open'];
@@ -2935,11 +2975,103 @@ main { 动画名; }
 						if (Object.keys(detected).filter(k => k !== '_open').length > 0) {
 							mouthMorphs = detected;
 							meshLipsync = currentMesh;
+							detectAllMorphs(currentMesh);
 							console.log('[Lipsync] Auto-detected morphs:', describeMouthMorphs(detected));
 						}
 					}, 500);
 				}
 			};
+
+			// ===== 通用表情驱动系统 =====
+			// 自动检测模型所有可用 morph，建立 name→{name, index} 映射
+			let allMorphs = {};    // { morphName: { name, index } }
+			let exprTargets = {};  // { morphName: targetWeight }
+			let exprWeights = {};  // { morphName: currentWeight }
+			let exprApplied = {};  // { morphName: lastAppliedDelta }
+
+			function detectAllMorphs(mesh) {
+				allMorphs = {};
+				if (!mesh?.morphTargetDictionary) return;
+				const dict = mesh.morphTargetDictionary;
+				for (const [name, index] of Object.entries(dict)) {
+					allMorphs[name] = { name, index };
+				}
+				console.log('[EXPR] Detected', Object.keys(allMorphs).length, 'morphs');
+			}
+
+			// 解析 EXPR 命令并执行
+			// 格式: morph名 权重; morph名2 权重2; 或 reset
+			function executeExpression(exprCode) {
+				if (!currentMesh?.morphTargetInfluences || !Object.keys(allMorphs).length) {
+					console.warn('[EXPR] No mesh or morphs not detected');
+					return;
+				}
+				const commands = exprCode.split(';').map(s => s.trim()).filter(Boolean);
+				for (const cmd of commands) {
+					if (cmd.toLowerCase() === 'reset') {
+						// 重置所有表情到 0
+						for (const key of Object.keys(exprTargets)) exprTargets[key] = 0;
+						console.log('[EXPR] Reset all expressions');
+						continue;
+					}
+					// 格式: morph名 权重 (如 "笑 0.8" 或 "happy 0.5")
+					const parts = cmd.trim().split(/\s+/);
+					if (parts.length < 2) continue;
+					const weight = parseFloat(parts[parts.length - 1]);
+					const morphName = parts.slice(0, -1).join(' ');
+					if (isNaN(weight)) continue;
+
+					// 模糊匹配：精确匹配优先，然后包含匹配
+					let matched = allMorphs[morphName];
+					if (!matched) {
+						const lowerName = morphName.toLowerCase();
+						for (const [name, info] of Object.entries(allMorphs)) {
+							if (name.toLowerCase().includes(lowerName)) {
+								matched = info;
+								break;
+							}
+						}
+					}
+					if (matched) {
+						exprTargets[matched.name] = Math.max(0, Math.min(1, weight));
+						console.log('[EXPR] Set', matched.name, '→', weight);
+					} else {
+						console.warn('[EXPR] Morph not found:', morphName);
+					}
+				}
+			}
+
+			// 表情合成器（每帧调用，指数平滑插值）
+			function tickExpressionCompositor(deltaSeconds) {
+				const mesh = currentMesh;
+				if (!mesh?.morphTargetInfluences || !deltaSeconds) return;
+				const speed = 12; // 平滑速度
+				const alpha = 1 - Math.exp(-speed * deltaSeconds);
+
+				// 先撤销上一帧的贡献
+				for (const [key, applied] of Object.entries(exprApplied)) {
+					if (!applied) continue;
+					const info = allMorphs[key];
+					if (info && typeof info.index === 'number') {
+						mesh.morphTargetInfluences[info.index] = Math.max(0,
+							(mesh.morphTargetInfluences[info.index] || 0) - applied);
+					}
+				}
+
+				// 平滑插值到目标并写入
+				for (const [key, target] of Object.entries(exprTargets)) {
+					const current = exprWeights[key] || 0;
+					const next = current + (target - current) * alpha;
+					exprWeights[key] = Math.abs(next) < 0.001 ? 0 : next;
+
+					const info = allMorphs[key];
+					if (info && typeof info.index === 'number') {
+						const base = mesh.morphTargetInfluences[info.index] || 0;
+						mesh.morphTargetInfluences[info.index] = base + exprWeights[key];
+						exprApplied[key] = exprWeights[key];
+					}
+				}
+			}
 
 			// ===== 集成到动画循环：在 render 前 tick 唇形合成器 =====
 			const origAnimate = animate;
@@ -2951,6 +3083,8 @@ main { 动画名; }
 				}
 				// tick 唇形合成器（在 VMD 动画更新后，渲染前）
 				tickLipCompositor(delta);
+				// tick 表情合成器
+				tickExpressionCompositor(delta);
 				if (currentMesh) {
 					spotLight.target.position.set(
 						currentMesh.position.x,
