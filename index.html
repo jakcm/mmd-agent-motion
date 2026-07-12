@@ -1031,12 +1031,21 @@
 				const lines = code.split('\n');
 				const result = [];
 				let skipped = 0;
+				let inMainBlock = false;
+				let braceDepth = 0;
 				for (const rawLine of lines) {
 					const line = rawLine.trim();
 					// 空行 → 跳过
 					if (!line) continue;
+					// 追踪 main { } 块深度：进入 main 后所有内容原样保留
+					if (/^main\s*\{/.test(line)) { inMainBlock = true; braceDepth = 1; result.push(rawLine); continue; }
+					if (inMainBlock) {
+						result.push(rawLine);
+						if (line === '}') { inMainBlock = false; braceDepth = 0; }
+						continue;
+					}
 					// 结构关键字 → 原样保留
-					if (/^@\w+/.test(line) || /^}$/.test(line) || /^main\s*\{/.test(line)) {
+					if (/^@\w+/.test(line) || /^}$/.test(line)) {
 						result.push(rawLine);
 						continue;
 					}
@@ -1087,7 +1096,16 @@
 					console.warn(`[MPL] 跳过非法语句: ${line.substring(0, 60)}`);
 				}
 				if (skipped > 0) console.log(`[MPL] 共跳过 ${skipped} 个无效行`);
-				return result.join('\n');
+				let output = result.join('\n');
+				// 兜底：如果 main { } 为空，自动填入 @animation 名
+				if (/main\s*\{\s*\}/.test(output)) {
+					const animNames = [...output.matchAll(/@animation\s+(\w+)/g)].map(m => m[1]);
+					if (animNames.length > 0) {
+						output = output.replace(/main\s*\{\s*\}/, 'main {' + animNames.map(n => '\n' + n + ';').join('') + '\n}');
+						console.log(`[MPL] 兜底：自动填充 main { ${animNames.join(', ')} }`);
+					}
+				}
+				return output;
 			}
 
 			async function executeMPL(mplCode) {
@@ -3368,7 +3386,7 @@ MPL 代码只允许以下4种行，其他任何内容都不要写：
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-10 MPL 完整语法提示词+语句过滤';
+			document.getElementById('versionBadge').textContent = '2026-07-12-11 main块保护+兜底填充';
 		</script>
 	</body>
 </html>
