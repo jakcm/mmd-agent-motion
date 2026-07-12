@@ -1232,7 +1232,7 @@
 								// 调试：显示轨道信息（仅调试模式）
 								const debugOn = document.getElementById('cfg-debug-mode')?.checked;
 								if (debugOn) {
-									const allTrackNames = animation.tracks.map(t => t.name.split('.')[0]);
+									const allTrackNames = animation.tracks.map(t => t.name);
 									addMessage('🔍 轨道(' + allTrackNames.length + '): ' + allTrackNames.join(', '), 'system');
 									addMessage('🎯 目标骨骼: ' + [...involvedBonesJP].join(', '), 'system');
 								}
@@ -1304,7 +1304,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-21 调试模式开关+opencli测试'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-22 调试轨道名显示修复'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
