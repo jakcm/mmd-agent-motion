@@ -1205,22 +1205,10 @@
 						loader.loadAnimation(url, currentMesh, (animation) => {
 							URL.revokeObjectURL(url);
 
-							// ===== 插值模式：使用线性避免短动画的 Catmull-Rom 过冲抖动 =====
-							animation.tracks.forEach(track => {
-								track.setInterpolation(THREE.InterpolateLinear);
-							});
-
 							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
 							if (!mixer) { reject(new Error('动画混合器未初始化')); return; }
 
-							// 播放 Agent 动作
-							const agentAct = mixer.clipAction(animation);
-							agentAct.setEffectiveWeight(1);
-							agentAct.reset();
-							agentAct.play();
-							agentMotionActive = true;
-
-							// ===== 保留Idle模式：只覆盖MPL提到的骨骼，其他继续由Idle控制 =====
+							// ===== 保留Idle模式：在创建action之前过滤轨道 =====
 							const keepIdle = document.getElementById('cfg-keep-idle')?.checked;
 							if (keepIdle) {
 								// 从 sanitized MPL 中提取涉及的骨骼名（英文）
@@ -1233,20 +1221,33 @@
 								for (const bone of involvedBones) {
 									try { const jp = mplCompiler.get_bone_japanese_name(bone); if (jp) involvedBonesJP.add(jp); } catch(e) {}
 								}
-								// 只保留目标骨骼的 track
+								// 过滤：只保留目标骨骼的 track
+								const beforeCount = animation.tracks.length;
 								animation.tracks = animation.tracks.filter(track => {
 									const boneName = track.name.split('.')[0];
 									return involvedBonesJP.has(boneName);
 								});
-								console.log('[MPL] 保留Idle模式，仅覆盖骨骼:', [...involvedBonesJP].join(', '));
+								console.log('[MPL] 保留Idle模式，轨道', beforeCount, '→', animation.tracks.length, '，骨骼:', [...involvedBonesJP].join(', '));
 								// Idle 保持低权重运行
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0.15); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0.15); }
-								} else {
+							} else {
 								// 原逻辑：完全暂停 idle/dance
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0); }
 							}
+
+							// ===== 插值模式：使用线性避免短动画的 Catmull-Rom 过冲抖动 =====
+							animation.tracks.forEach(track => {
+								track.setInterpolation(THREE.InterpolateLinear);
+							});
+
+							// 播放 Agent 动作
+							const agentAct = mixer.clipAction(animation);
+							agentAct.setEffectiveWeight(1);
+							agentAct.reset();
+							agentAct.play();
+							agentMotionActive = true;
 
 							// 动作结束后恢复 idle
 							const duration = animation.duration || 2;
@@ -1288,7 +1289,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-17 保留Idle修复'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-18 保留Idle轨道过滤顺序修复'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
