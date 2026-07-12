@@ -1031,44 +1031,62 @@
 				const lines = code.split('\n');
 				const result = [];
 				let skipped = 0;
-				for (const line of lines) {
-					// 匹配: bone action direction angle;
-					const m = line.match(/^(\s*)(\w+)\s+(bend|turn|sway|move|reset)(?:\s+(forward|backward|left|right|up|down))?(?:\s+(\d+))?/);
-					if (!m) { result.push(line); continue; }
-					let [full, indent, bone, action, dir, angle] = m;
-					let changed = false;
-					// 1) 骨骼名修正
-					let boneNorm = bone.toLowerCase();
-					if (!VALID_BONES.has(boneNorm)) {
-						const mapped = BONE_ALIASES[boneNorm];
-						if (mapped) { boneNorm = mapped; changed = true; console.log(`[MPL] 骨骼映射: ${bone} → ${mapped}`); }
-						else { skipped++; console.warn(`[MPL] 跳过未知骨骼: ${bone}`); continue; }
+				for (const rawLine of lines) {
+					const line = rawLine.trim();
+					// 空行 → 跳过
+					if (!line) continue;
+					// 结构关键字 → 原样保留
+					if (/^@\w+/.test(line) || /^}$/.test(line) || /^main\s*\{/.test(line)) {
+						result.push(rawLine);
+						continue;
 					}
-					// 2) 方向修正
-					if (dir && DIR_ALIASES[dir]) { dir = DIR_ALIASES[dir]; changed = true; }
-					// 3) 动作+方向组合验证
-					if (action === 'reset') { /* reset 总是合法的 */ }
-					else {
-						const combos = VALID_COMBOS[boneNorm];
-						if (combos) {
-							const valid = combos.some(c => c[0] === action && (!dir || c[1] === dir));
-							if (!valid) {
-								// 找同骨骼最接近的合法组合（优先同动作）
-								let best = combos.find(c => c[0] === action) || combos[0];
-								if (best) {
-									console.warn(`[MPL] 修正组合: ${boneNorm} ${action} ${dir||''} → ${boneNorm} ${best[0]} ${best[1]}`);
-									action = best[0]; dir = best[1]; changed = true;
+					// 动画关键帧: <number>:<posename>; → 原样保留
+					if (/^\d+(\.\d+)?:\s*\w+\s*;/.test(line)) {
+						result.push(rawLine);
+						continue;
+					}
+					// 骨骼指令: bone action [dir] [angle];
+					const m = line.match(/^(\s*)(\w+)\s+(bend|turn|sway|move|reset)(?:\s+(forward|backward|left|right|up|down))?(?:\s+(\d+))?/);
+					if (m) {
+						let [full, indent, bone, action, dir, angle] = m;
+						let changed = false;
+						// 1) 骨骼名修正
+						let boneNorm = bone.toLowerCase();
+						if (!VALID_BONES.has(boneNorm)) {
+							const mapped = BONE_ALIASES[boneNorm];
+							if (mapped) { boneNorm = mapped; changed = true; console.log(`[MPL] 骨骼映射: ${bone} → ${mapped}`); }
+							else { skipped++; console.warn(`[MPL] 跳过未知骨骼: ${bone}`); continue; }
+						}
+						// 2) 方向修正
+						if (dir && DIR_ALIASES[dir]) { dir = DIR_ALIASES[dir]; changed = true; }
+						// 3) 动作+方向组合验证
+						if (action === 'reset') { /* reset 总是合法的 */ }
+						else {
+							const combos = VALID_COMBOS[boneNorm];
+							if (combos) {
+								const valid = combos.some(c => c[0] === action && (!dir || c[1] === dir));
+								if (!valid) {
+									// 找同骨骼最接近的合法组合（优先同动作）
+									let best = combos.find(c => c[0] === action) || combos[0];
+									if (best) {
+										console.warn(`[MPL] 修正组合: ${boneNorm} ${action} ${dir||''} → ${boneNorm} ${best[0]} ${best[1]}`);
+										action = best[0]; dir = best[1]; changed = true;
+									}
 								}
 							}
 						}
+						if (changed) {
+							result.push(`${indent}${boneNorm} ${action}${dir ? ' ' + dir : ''}${angle ? ' ' + angle : ''};`);
+						} else {
+							result.push(rawLine);
+						}
+						continue;
 					}
-					if (changed) {
-						result.push(`${indent}${boneNorm} ${action}${dir ? ' ' + dir : ''}${angle ? ' ' + angle : ''};`);
-					} else {
-						result.push(line);
-					}
+					// 不匹配任何合法模式 → 跳过（通用过滤）
+					skipped++;
+					console.warn(`[MPL] 跳过非法语句: ${line.substring(0, 60)}`);
 				}
-				if (skipped > 0) console.log(`[MPL] 跳过 ${skipped} 个无效行`);
+				if (skipped > 0) console.log(`[MPL] 共跳过 ${skipped} 个无效行`);
 				return result.join('\n');
 			}
 
@@ -1093,6 +1111,7 @@
 					console.log('[MPL] Normalized:', normalized.substring(0, 200));
 					// 通用验证+修正
 					const sanitized = sanitizeMPL(normalized);
+					console.log('[MPL] Sanitized:', sanitized.substring(0, 300));
 					const vmdBytes = mplCompiler.compile(sanitized);
 					console.log('[MPL] Compiled:', vmdBytes.length, 'bytes');
 
@@ -2496,7 +2515,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-8 loaded');
+			console.log('[App] MMD Agent v2026-07-12-9 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -3346,7 +3365,7 @@ main { 动画名; }
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-8 MPL 流式+验证';
+			document.getElementById('versionBadge').textContent = '2026-07-12-9 MPL 流式+验证+语句过滤';
 		</script>
 	</body>
 </html>
