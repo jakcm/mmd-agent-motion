@@ -689,7 +689,8 @@
 	<body>
 		<div class="loading-overlay" id="loadingOverlay">
 			<div class="spinner"></div>
-			<div class="loading-text" id="loadingText">正在加载资源...</div>
+			<div class="loading-text" id="loadingText">加载中...</div>
+		<div style="font-size:11px;color:rgba(255,255,255,0.45);font-family:monospace;margin-top:8px;" id="versionBadge"></div>
 		</div>
 
 		<!-- ===== 右上角菜单开关 ===== -->
@@ -713,8 +714,7 @@
 
 		<!-- 控制面板 -->
 		<div class="controls-panel" id="controlsPanel">
-			<div style="font-size:11px;color:rgba(255,255,255,0.25);font-family:monospace;pointer-events:none;margin-bottom:8px;" id="versionBadge"></div>
-
+	
 								<!-- 模型选择 -->
 								<div class="panel-section">
 									<div class="section-title">模型选择</div>
@@ -1257,6 +1257,11 @@
 			// ===== DOM 元素 =====
 			const loadingOverlay = document.getElementById('loadingOverlay');
 			const loadingText = document.getElementById('loadingText');
+
+			// ===== 版本号（yyyy-MM-dd HH:mm） =====
+			const _now = new Date();
+			const VERSION_STR = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0') + ' ' + String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
+			document.getElementById('versionBadge').textContent = VERSION_STR;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
 			const controlsPanel = document.getElementById('controlsPanel');
@@ -1355,6 +1360,11 @@
 				{
 					name: '约会 - 薄荷宿舍',
 					url: './models/薄荷宿舍/薄荷宿舍.pmx',
+					type: 'pmx'
+				},
+				{
+					name: '薄荷宿舍（去尾巴）',
+					url: './models/薄荷宿舍/薄荷宿舍_去尾巴.pmx',
 					type: 'pmx'
 				},
 				{
@@ -1807,7 +1817,7 @@
 						(progress) => {
 							if (progress.total > 0) {
 								const percent = (100.0 * (progress.loaded / progress.total)).toFixed(0);
-								loadingText.textContent = `正在加载模型... ${percent}%`;
+								loadingText.textContent = `版本号：${percent}%`;
 							}
 						},
 						(error) => {
@@ -3401,8 +3411,6 @@
 				}
 			})();
 
-			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-13 默认提示词预填充';
-		</script>
+			</script>
 	</body>
 </html>
