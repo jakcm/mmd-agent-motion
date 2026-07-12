@@ -937,6 +937,89 @@
 			import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
 			import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 
+			// ===== MPL (Motion Programming Language) 编译器 =====
+			import { initSync as mplInitSync, WasmMPLCompiler } from './libs/mmd_mpl.js';
+			let mplCompiler = null;
+			async function initMPL() {
+				try {
+					const resp = await fetch('./libs/mmd_mpl_bg.wasm');
+					const wasmBytes = await resp.arrayBuffer();
+					mplInitSync({ module: wasmBytes });
+					mplCompiler = new WasmMPLCompiler();
+					console.log('[MPL] Compiler initialized, bones:', mplCompiler.get_all_bones().length);
+					// 暴露到 window 方便调试
+					window.__mpl = { compiler: mplCompiler, execute: executeMPL };
+				} catch (e) {
+					console.warn('[MPL] Init failed (non-critical):', e);
+				}
+			}
+
+			// ===== 动态骨骼动作控制 =====
+			let agentMotionActive = false;
+			let agentMotionTimeout = null;
+
+			async function executeMPL(mplCode) {
+				if (!mplCompiler || !currentMesh) {
+					console.warn('[MPL] Compiler or mesh not ready');
+					return false;
+				}
+				try {
+					// 规范化 MPL 代码：确保花括号和分号后有换行，花括号前有空格
+					const normalized = mplCode
+						.replace(/\{/g, ' {\n')
+						.replace(/\}/g, '\n}\n')
+						.replace(/;/g, ';\n')
+						.replace(/\n\s*\n/g, '\n')
+						.trim();
+					const vmdBytes = mplCompiler.compile(normalized);
+					console.log('[MPL] Compiled:', vmdBytes.length, 'bytes');
+
+					// 解析 VMD 并加载为动画
+					const loader = new MMDLoader();
+					const blob = new Blob([vmdBytes], { type: 'application/octet-stream' });
+					const url = URL.createObjectURL(blob);
+
+					return new Promise((resolve) => {
+						loader.loadAnimation(url, currentMesh, (animation) => {
+							URL.revokeObjectURL(url);
+							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
+							if (!mixer) { resolve(false); return; }
+
+							// 暂停当前舞蹈/idle，播放 Agent 动作
+							const agentAct = mixer.clipAction(animation);
+							agentAct.setEffectiveWeight(1);
+							agentAct.reset();
+							agentAct.play();
+							agentMotionActive = true;
+
+							// 降低 idle/dance 权重
+							if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0); }
+							if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0); }
+
+							// 动作结束后恢复 idle
+							const duration = animation.duration || 2;
+							if (agentMotionTimeout) clearTimeout(agentMotionTimeout);
+							agentMotionTimeout = setTimeout(() => {
+								agentAct.setEffectiveWeight(0);
+								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(1); if (!i.isRunning()) i.play(); }
+								agentMotionActive = false;
+								console.log('[MPL] Motion finished, back to idle');
+							}, duration * 1000 + 200);
+
+							console.log('[MPL] Playing agent motion, duration:', duration.toFixed(1), 's');
+							resolve(true);
+						}, undefined, (err) => {
+							URL.revokeObjectURL(url);
+							console.error('[MPL] VMD load error:', err);
+							resolve(false);
+						});
+					});
+				} catch (e) {
+					console.error('[MPL] Compile error:', e);
+					return false;
+				}
+			}
+
 			// ===== DOM 元素 =====
 			const loadingOverlay = document.getElementById('loadingOverlay');
 			const loadingText = document.getElementById('loadingText');
@@ -2613,11 +2696,29 @@
 						body: JSON.stringify({
 							model: getModelId(),
 							messages: [
-								{ role: 'system', content: '你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。' },
+								{ role: 'system', content: `你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。
+
+当用户要求你做出动作（如挥手、鞠躬、点头、跳舞、鼓掌等），在回复末尾用 [MPL:...] 标记包含一段 MPL 代码。
+
+MPL 语法格式:
+@pose 动作名 { 骨骼名 动作 方向 角度; }
+@animation 动画名 { 时间点: 姿势名; }
+main { 动画名; }
+
+骨骼名: arm_r, arm_l, elbow_r, elbow_l, wrist_r, wrist_l, shoulder_r, shoulder_l, leg_r, leg_l, knee_r, knee_l, head, neck, upper_body, lower_body, center, waist
+动作: bend(弯曲), turn(旋转), sway(摆动), move(移动,仅center)
+方向: forward, backward, left, right, up, down
+注意: elbow只支持bend forward; knee只支持bend backward; 每个骨骼每行可用逗号组合多条指令
+角度: 人体工学范围内(建议15-80)
+
+示例:
+挥手: [MPL:@pose w1{shoulder_r bend forward 30;arm_r bend forward 80,sway left 15;elbow_r bend forward 30;wrist_r turn right 15;}@pose w2{shoulder_r bend forward 15;arm_r bend forward 50;elbow_r bend forward 70;}@animation wa{0:w1;0.35:w2;0.7:w1;}main{wa;}]
+鞠躬: [MPL:@pose b1{upper_body bend forward 40;neck bend forward 20;head bend forward 15;}@animation bow{0:b1;0.5:b1;1:b1;}main{bow;}]
+点头: [MPL:@pose n1{neck bend forward 25;head bend forward 20;}@pose n2{neck bend backward 5;head bend backward 8;}@animation nd{0:n1;0.25:n2;0.5:n1;0.75:n2;}main{nd;}]` },
 								...chatHistory.slice(-20)
 							],
-							max_tokens: 300,
-							temperature: 0.8
+							max_tokens: 600,
+							temperature: 0.7
 						})
 					});
 					if (!resp.ok) throw new Error('API error: ' + resp.status);
@@ -2670,9 +2771,24 @@
 					if (sysMsg) sysMsg.remove();
 					isWaitingAI = false;
 					if (reply) {
-						addMessage(reply, 'assistant');
-						speakText(reply);
-					} else {
+						// 解析 [MPL:...] 标记
+						const mplMatch = reply.match(/\[MPL:([\s\S]*?)\]/);
+						if (mplMatch && mplMatch[1]) {
+							const mplCode = mplMatch[1].trim();
+							// 清洗文本（去掉 MPL 标记后显示）
+							const cleanReply = reply.replace(/\[MPL:[\s\S]*?\]/, '').trim();
+							if (cleanReply) addMessage(cleanReply, 'assistant');
+							else addMessage('(执行动作中...)', 'system');
+							// 执行 MPL 动作
+							const ok = await executeMPL(mplCode);
+							if (!ok) addMessage('⚠️ 动作执行失败', 'system');
+							// 朗读文本部分
+							if (cleanReply) speakText(cleanReply);
+						} else {
+							addMessage(reply, 'assistant');
+							speakText(reply);
+						}
+					}else {
 						addMessage('抱歉，AI 回复失败，请检查 API Key 和网络连接', 'system');
 					}
 				} else {
@@ -2840,7 +2956,10 @@
 					}
 				});
 
-				// 默认加载第一个模型和第一个舞蹈
+				// 初始化 MPL 编译器
+			await initMPL();
+
+			// 默认加载第一个模型和第一个舞蹈
 				modelSelector.value = '0';
 				danceSelector.value = '0';
 				await loadMMDModel(builtInModels[0].url, builtInModels[0].name);
@@ -2858,7 +2977,7 @@
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12 09:22';
+			document.getElementById('versionBadge').textContent = '2026-07-12 MPL 动态动作';
 		</script>
 	</body>
 </html>
