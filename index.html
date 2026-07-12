@@ -2836,57 +2836,64 @@ main { 动画名; }
 					isWaitingAI = true;
 					updateSendBtn();
 					addMessage('思考中...', 'system');
-					const result = await callLLM(text);
-					// 移除"思考中"提示
-					const sysMsg = chatMessagesEl?.querySelector('.msg.system:last-child');
-					if (sysMsg) sysMsg.remove();
-					isWaitingAI = false;
-					if (result.error) {
-						addMessage('❌ ' + result.error, 'system');
-						// 回滚 user message from chatHistory
-						chatHistory.pop();
-					} else if (result.reply) {
-							// 先剥除思考块（各种推理模型标签）
-									const visibleReply = result.reply
-									.replace(/<think>[\s\S]*?<\/think>/gi, '')
-									.replace(/<tool_call>.*?<\/tool_call>/gi, '')
-									.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
-									.trim();
-							// Parse [MPL:...] and [EXPR:...]
-							const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
-							const exprMatch = visibleReply.match(/\[EXPR:([\s\S]*?)\]/);
-							const mplCode = mplMatch?.[1]?.trim() || '';
-							const exprCode = exprMatch?.[1]?.trim() || '';
-							// Strip
-							let cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').replace(/\[EXPR:[\s\S]*?\]/, '').trim();
-							// Double check for stale
-							clean = cleanReply;
-							if (clean.includes('[MPL:') || clean.includes('[EXPR:')) {
-								clean = clean.replace(/\[MPL:[\s\S]*/g, '').replace(/\[EXPR:[\s\S]*/g, '').trim();
-							}
-							cleanReply = clean;
-							const hasAction = mplCode || exprCode;
+					try {
+						const result = await callLLM(text);
+						console.log('[LLM] result:', JSON.stringify(result).substring(0, 200));
+						// 移除"思考中"提示
+						const sysMsg = chatMessagesEl?.querySelector('.msg.system:last-child');
+						if (sysMsg) sysMsg.remove();
+						isWaitingAI = false;
+						if (result && result.error) {
+							addMessage('❌ ' + result.error, 'system');
+							chatHistory.pop();
+						} else if (result && result.reply) {
+								// 先剥除思考块（各种推理模型标签）
+										const visibleReply = result.reply
+										.replace(/<think>[\s\S]*?<\/think>/gi, '')
+										.replace(/<tool_call>.*?<\/tool_call>/gi, '')
+										.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+										.trim();
+								// Parse [MPL:...] and [EXPR:...]
+								const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
+								const exprMatch = visibleReply.match(/\[EXPR:([\s\S]*?)\]/);
+								const mplCode = mplMatch?.[1]?.trim() || '';
+								const exprCode = exprMatch?.[1]?.trim() || '';
+								// Strip
+								let cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').replace(/\[EXPR:[\s\S]*?\]/, '').trim();
+								// Double check for stale brackets
+								if (cleanReply.includes('[MPL:') || cleanReply.includes('[EXPR:')) {
+									cleanReply = cleanReply.replace(/\[MPL:[\s\S]*/g, '').replace(/\[EXPR:[\s\S]*/g, '').trim();
+								}
+								const hasAction = mplCode || exprCode;
 
-							if (hasAction) {
-								// ① 先触发 TTS
-								if (cleanReply) speakText(cleanReply);
-								// ② 显示到对话区（MPL + EXPR 折叠）
-								let actionHtml = '';
-								if (mplCode) actionHtml += '<details class="msg-mpl"><summary>🎬 动作</summary><div class="mpl-code">'
-									+ mplCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div></details>';
-								if (exprCode) actionHtml += '<details class="msg-mpl"><summary>😊 表情</summary><div class="mpl-code">'
-									+ exprCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div></details>';
-								const html = '<div>' + (cleanReply || '(执行动作中…)') + '</div>' + actionHtml;
-								addMessage(null, 'assistant', html);
-								// ③ 执行动作（不阻塞）
-								if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败', 'system'); });
-								if (exprCode) executeExpression(exprCode);
-							} else {
-								speakText(visibleReply);
-								addMessage(visibleReply, 'assistant');
-							}
-					} else {
-						addMessage('❌ AI 返回了空回复，可能是模型不兼容', 'system');
+								if (hasAction) {
+									// ① 先触发 TTS
+									if (cleanReply) speakText(cleanReply);
+									// ② 显示到对话区（MPL + EXPR 折叠）
+									let actionHtml = '';
+									if (mplCode) actionHtml += '<details class="msg-mpl"><summary>🎬 动作</summary><div class="mpl-code">'
+										+ mplCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div></details>';
+									if (exprCode) actionHtml += '<details class="msg-mpl"><summary>😊 表情</summary><div class="mpl-code">'
+										+ exprCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div></details>';
+									const html = '<div>' + (cleanReply || '(执行动作中…)') + '</div>' + actionHtml;
+									addMessage(null, 'assistant', html);
+									// ③ 执行动作（不阻塞）
+									if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败', 'system'); });
+									if (exprCode) executeExpression(exprCode);
+								} else {
+									speakText(visibleReply);
+									addMessage(visibleReply, 'assistant');
+								}
+						} else {
+							addMessage('❌ AI 返回了空回复，可能是模型不兼容', 'system');
+							chatHistory.pop();
+						}
+					} catch (e) {
+						console.error('[handleSend] Unexpected error:', e);
+						const sysMsg = chatMessagesEl?.querySelector('.msg.system:last-child');
+						if (sysMsg) sysMsg.remove();
+						addMessage('❌ 程序异常: ' + (e.message || e), 'system');
+						isWaitingAI = false;
 						chatHistory.pop();
 					}
 				} else {
