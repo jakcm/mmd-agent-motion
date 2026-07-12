@@ -868,7 +868,7 @@
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>物理模拟</span></div>
-						<label class="rp-check-label"><input type="checkbox" id="physicsEnabled" checked> 启用物理（裙摆等动态效果）</label>
+						<label class="rp-check-label"><input type="checkbox" id="physicsEnabled"> 启用物理（裙摆等动态效果，可能导致抖动）</label>
 					</div>
 					<div class="rp-setting">
 						<div class="rp-label"><span>网格线颜色</span></div>
@@ -2107,7 +2107,7 @@
 			});
 
 			// ===== 物理模拟开关 =====
-			let physicsEnabled = true;
+			let physicsEnabled = false;
 			document.getElementById("physicsEnabled").addEventListener("change", (e) => {
 				physicsEnabled = e.target.checked;
 				if (currentHelper && currentMesh) {
