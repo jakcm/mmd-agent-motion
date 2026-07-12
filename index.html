@@ -1413,7 +1413,7 @@
 											danceClip = mmd.animation;
 
 											// 加载待机 VMD idle 动画（在后台进行，不影响主流程）
-											loader.loadAnimation('./vmd/idle.vmd', mesh, (clip) => {
+											loader.loadAnimation('./vmd/idle.vmd?v=20260712', mesh, (clip) => {
 												idleClip = clip;
 												const mixer = helper.objects.get(mesh)?.mixer;
 												if (mixer) {
