@@ -1730,15 +1730,26 @@
 										modelUrl,
 										[currentVmdFile],
 										(mmd) => {
-											const mesh = mmd.mesh;
-											mesh.castShadow = true;
-											mesh.receiveShadow = true;
+																const mesh = mmd.mesh;
+																mesh.castShadow = true;
+																mesh.receiveShadow = true;
 
-											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
-											const materials = mesh.material;
+																// 自动检测并修复模型缩放问题（某些 PMX 导出时坐标被缩小）
+																const bbox = new THREE.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);
+																const size = new THREE.Vector3();
+																bbox.getSize(size);
+																const modelHeight = size.y;
+																if (modelHeight > 0 && modelHeight < 1) {
+																	const scaleFactor = 18 / modelHeight;
+																	console.log(`[AutoScale] Model height ${modelHeight.toFixed(4)}, scaling up ${scaleFactor.toFixed(1)}x`);
+																	mesh.scale.setScalar(scaleFactor);
+																}
 
-											scene.add(mesh);
-											currentMesh = mesh;
+																// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
+																const materials = mesh.material;
+
+																scene.add(mesh);
+																currentMesh = mesh;
 
 											// 设置动画（根据物理开关）
 											try {
@@ -1826,10 +1837,22 @@
 												loader.load(
 													modelUrl,
 													(mesh) => {
-														mesh.castShadow = true;
-														mesh.receiveShadow = true;
-														scene.add(mesh);
-														currentMesh = mesh;
+																			mesh.castShadow = true;
+																			mesh.receiveShadow = true;
+
+																			// 自动检测并修复模型缩放问题
+																			const bbox = new THREE.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);
+																			const size = new THREE.Vector3();
+																			bbox.getSize(size);
+																			const modelHeight = size.y;
+																			if (modelHeight > 0 && modelHeight < 1) {
+																				const scaleFactor = 18 / modelHeight;
+																				console.log(`[AutoScale] Model height ${modelHeight.toFixed(4)}, scaling up ${scaleFactor.toFixed(1)}x`);
+																				mesh.scale.setScalar(scaleFactor);
+																			}
+
+																			scene.add(mesh);
+																			currentMesh = mesh;
 
 														// 单独加载 VMD 动画
 														loader.loadAnimation(
