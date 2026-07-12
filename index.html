@@ -1232,13 +1232,13 @@
 								// 调试：显示轨道信息（仅调试模式）
 								const debugOn = document.getElementById('cfg-debug-mode')?.checked;
 								if (debugOn) {
-									const allTrackNames = animation.tracks.map(t => t.name);
+									const allTrackNames = animation.tracks.map(t => (t.name.match(/bones\[(.+?)\]/)||[])[1]||t.name);
 									addMessage('🔍 轨道(' + allTrackNames.length + '): ' + allTrackNames.join(', '), 'system');
 									addMessage('🎯 目标骨骼: ' + [...involvedBonesJP].join(', '), 'system');
 								}
 								// 过滤轨道，创建全新的 AnimationClip
 								const filteredTracks = animation.tracks.filter(track => {
-									const boneName = track.name.split('.')[0];
+									const boneName = (track.name.match(/bones\[(.+?)\]/)||[])[1]||'';
 									return involvedBonesJP.has(boneName);
 								});
 								clipToPlay = new THREE.AnimationClip('agent_filtered', animation.duration, filteredTracks);
@@ -1304,7 +1304,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-22 调试轨道名显示修复'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-23 轨道名正则提取修复'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
