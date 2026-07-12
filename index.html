@@ -993,7 +993,24 @@
 			// ===== 通用 MPL 验证器：自动修正编译器不认识的骨骼/动作/方向 =====
 			const VALID_BONES = new Set(['arm_r','arm_l','elbow_r','elbow_l','wrist_r','wrist_l','shoulder_r','shoulder_l','leg_r','leg_l','knee_r','knee_l','head','neck','upper_body','lower_body','center','waist']);
 			const VALID_COMBOS = {
-				...省略...
+				head:         [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				neck:         [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				arm_r:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
+				arm_l:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
+				shoulder_r:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				shoulder_l:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				elbow_r:      [['bend','forward'],['reset']],
+				elbow_l:      [['bend','forward'],['reset']],
+				wrist_r:      [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				wrist_l:      [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				knee_r:       [['bend','backward'],['reset']],
+				knee_l:       [['bend','backward'],['reset']],
+				leg_r:        [['bend','forward'],['bend','backward'],['reset']],
+				leg_l:        [['bend','forward'],['bend','backward'],['reset']],
+				upper_body:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				lower_body:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				center:       [['move','forward'],['move','backward'],['move','left'],['move','right'],['move','up'],['move','down'],['reset']],
+				waist:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
 			};
 			// ===== 默认系统提示词（用户可在唇形同步设置中覆盖） =====
 			const DEFAULT_SYSTEM_PROMPT = `你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。
