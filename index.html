@@ -1243,9 +1243,9 @@
 								});
 								clipToPlay = new THREE.AnimationClip('agent_filtered', animation.duration, filteredTracks);
 								if (debugOn) addMessage('✂️ 过滤: ' + animation.tracks.length + ' → ' + filteredTracks.length + ' 轨道', 'system');
-								// Idle 保持低权重运行
-								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0.15); }
-								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0.15); }
+								// 不修改 idle/dance 权重，让 Three.js 自动混合：
+							// agent 只有 head/neck 轨道 → 只覆盖这两个骨骼
+							// 其他骨骼（手臂等）继续由现有动画控制
 							} else {
 								// 原逻辑：完全暂停 idle/dance
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0); }
@@ -1276,7 +1276,7 @@
 									agentAct.setEffectiveWeight(1 - ease);
 									if (idleClip) {
 										const i = mixer.clipAction(idleClip);
-										i.setEffectiveWeight(keepIdle ? Math.max(0.15, ease) : ease);
+										i.setEffectiveWeight(ease);
 										if (!i.isRunning()) i.play();
 									}
 									if (t < 1) requestAnimationFrame(fadeToIdle);
@@ -1304,7 +1304,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-23 轨道名正则提取修复'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-24 keepIdle不修改idle权重'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
