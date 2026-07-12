@@ -1258,10 +1258,9 @@
 			const loadingOverlay = document.getElementById('loadingOverlay');
 			const loadingText = document.getElementById('loadingText');
 
-			// ===== 版本号（yyyy-MM-dd HH:mm） =====
-			const _now = new Date();
-			const VERSION_STR = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0') + ' ' + String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
-			document.getElementById('versionBadge').textContent = VERSION_STR;
+			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
+			const BUILD_TIMESTAMP = '2026-07-12 13:28'; // 每次推送前手动更新
+			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
 			const controlsPanel = document.getElementById('controlsPanel');
