@@ -2719,16 +2719,19 @@
 					const schedule = stretchSchedule(buildVisemeSchedule(result.boundaries), audioBuffer.duration * 1000);
 					startLipSync(schedule, audioBuffer);
 				} catch (e) {
-					console.error('TTS error:', e);
-					// 兜底：浏览器内置语音合成
-					if (window.speechSynthesis) {
-						const u = new SpeechSynthesisUtterance(text);
-						u.lang = 'zh-CN';
-						u.onstart = () => { isSpeaking = true; };
-						u.onend = () => { isSpeaking = false; };
-						window.speechSynthesis.speak(u);
+						console.error('TTS error:', e);
+						// 兜底：浏览器内置语音合成
+						if (window.speechSynthesis) {
+							const u = new SpeechSynthesisUtterance(text);
+							u.lang = 'zh-CN';
+							u.onstart = () => { isSpeaking = true; };
+							u.onend = () => { isSpeaking = false; };
+							u.onerror = () => { isSpeaking = false; };
+							window.speechSynthesis.speak(u);
+						} else {
+							isSpeaking = false;
+						}
 					}
-				}
 			}
 
 			// ===== OpenRouter LLM 对话 =====
