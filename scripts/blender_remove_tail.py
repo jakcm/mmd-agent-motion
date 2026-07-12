@@ -300,11 +300,11 @@ if root_obj:
     bpy.ops.object.select_all(action='DESELECT')
     root_obj.select_set(True)
     bpy.context.view_layer.objects.active = root_obj
-    bpy.ops.mmd_tools.export_pmx(filepath=OUTPUT_PMX)
+    bpy.ops.mmd_tools.export_pmx(filepath=OUTPUT_PMX, scale=1.0)
     log('导出完成!')
 else:
     log('错误: 未找到MMD根对象！尝试直接导出...')
-    bpy.ops.mmd_tools.export_pmx(filepath=OUTPUT_PMX)
+    bpy.ops.mmd_tools.export_pmx(filepath=OUTPUT_PMX, scale=1.0)
     log('导出完成!')
 
 # ============================================================
