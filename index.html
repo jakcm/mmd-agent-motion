@@ -2844,15 +2844,10 @@ main { 动画名; }
 					if (sysMsg) sysMsg.remove();
 					isWaitingAI = false;
 					if (reply) {
-							// 先剥除 <think> 块（推理模型会输出思考过程，里面常含 [MPL:...] 示例干扰匹配）
-							const visibleReply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-							// 解析 [MPL:...] 和 [EXPR:...] 标记
-							const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
-							const exprMatch = visibleReply.match(/\[EXPR:([\s\S]*?)\]/);
-							const mplCode = mplMatch?.[1]?.trim() || '';
-							const exprCode = exprMatch?.[1]?.trim() || '';
-							// 清洗文本
-							let cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').replace(/\[EXPR:[\s\S]*?\]/, '').trim();
+							// 先剥除思考块（各种推理模型标签）
+								const visibleReply = reply
+									.replace(/<think>[\s\S]*?<\/think>/gi, '')
+									.replace(/</think><parameter=mode>replace
 							const hasAction = mplCode || exprCode;
 
 							if (hasAction) {
