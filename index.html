@@ -2847,7 +2847,22 @@ main { 动画名; }
 							// 先剥除思考块（各种推理模型标签）
 								const visibleReply = reply
 									.replace(/<think>[\s\S]*?<\/think>/gi, '')
-									.replace(/</think><parameter=mode>replace
+									.replace(/<tool_call>.*?<\/tool_call>/gi, '')
+									.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+									.trim();
+							// Parse [MPL:...] and [EXPR:...]
+							const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
+							const exprMatch = visibleReply.match(/\[EXPR:([\s\S]*?)\]/);
+							const mplCode = mplMatch?.[1]?.trim() || '';
+							const exprCode = exprMatch?.[1]?.trim() || '';
+							// Strip
+							let cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').replace(/\[EXPR:[\s\S]*?\]/, '').trim();
+							// Double check for stale
+							clean = cleanReply;
+							if (clean.includes('[MPL:') || clean.includes('[EXPR:')) {
+								clean = clean.replace(/\[MPL:[\s\S]*/g, '').replace(/\[EXPR:[\s\S]*/g, '').trim();
+							}
+							cleanReply = clean;
 							const hasAction = mplCode || exprCode;
 
 							if (hasAction) {
