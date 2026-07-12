@@ -942,26 +942,29 @@
 
 				<!-- ===== Service Worker 注册：资源缓存 ===== -->
 				<script>
-					if ('serviceWorker' in navigator) {
-				window.addEventListener('load', () => {
-					navigator.serviceWorker.register('./sw.js')
-						.then((reg) => {
-							console.log('[SW] Registered, scope:', reg.scope);
-							// 检查是否有等待激活的新 SW，有则通知页面刷新
-							reg.addEventListener('updatefound', () => {
-								const newSW = reg.installing;
-								newSW.addEventListener('statechange', () => {
-									if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
-										console.log('[SW] New version activated');
-									}
+						if ('serviceWorker' in navigator) {
+					window.addEventListener('load', () => {
+						navigator.serviceWorker.register('./sw.js')
+							.then((reg) => {
+								console.log('[SW] Registered, scope:', reg.scope);
+								// 强制检查 SW 更新
+								reg.update();
+								// 检查是否有等待激活的新 SW，有则通知页面刷新
+								reg.addEventListener('updatefound', () => {
+									const newSW = reg.installing;
+									newSW.addEventListener('statechange', () => {
+										if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+											console.log('[SW] New version activated, reloading...');
+											window.location.reload();
+										}
+									});
 								});
+							})
+							.catch((err) => {
+								console.warn('[SW] Registration failed:', err);
 							});
-						})
-						.catch((err) => {
-							console.warn('[SW] Registration failed:', err);
-						});
-				});
-			}
+					});
+				}
 		</script>
 
 		<script type="module">
@@ -2407,6 +2410,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
+			console.log('[App] MMD Agent v2026-07-12-2 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
