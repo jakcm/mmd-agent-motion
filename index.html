@@ -2589,7 +2589,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-12 loaded');
+			console.log('[App] MMD Agent v2026-07-12-13 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -3200,6 +3200,12 @@
 						if (modelIdEl && data.modelId) modelIdEl.value = data.modelId;
 						if (ttsVoiceEl && data.ttsVoice) ttsVoiceEl.value = data.ttsVoice;
 						if (systemPromptEl && data.systemPrompt) systemPromptEl.value = data.systemPrompt;
+						else if (systemPromptEl) systemPromptEl.value = DEFAULT_SYSTEM_PROMPT;
+					}
+					// 如果没有保存的设置，也用默认提示词填充
+					else {
+						const systemPromptEl = document.getElementById('cfg-system-prompt');
+						if (systemPromptEl) systemPromptEl.value = DEFAULT_SYSTEM_PROMPT;
 					}
 				} catch(e) { console.warn('Load lipsync settings failed:', e); }
 			})();
@@ -3396,7 +3402,7 @@
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-12 LLM提示词界面可配置';
+			document.getElementById('versionBadge').textContent = '2026-07-12-13 默认提示词预填充';
 		</script>
 	</body>
 </html>
