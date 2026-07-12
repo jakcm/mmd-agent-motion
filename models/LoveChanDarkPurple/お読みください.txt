@@ -1,0 +1,48 @@
+
+ ######################################################
+ #                                                    #
+ #     loveちゃん VRMモデル＋UnityPackage v1.0.0      #
+ #                                                    #
+ #                               © Kizuna AI Inc.     #
+ #                                                    #
+ ######################################################
+
+
+《内容物》
+
+・LoveChan_Normal_Publish.vrm
+
+・LoveChan_PublishData_v1.0.0.unitypackage
+
+
+
+《使い方》
+
+・LoveChan_Normal_Publish.vrmについて
+
+　UniVRM-0.106.0で生成しております。
+　VRM-0.x対応のアプリケーションでご利用ください。
+
+
+・LoveChan_PublishData_v1.0.0.unitypackageについて
+
+- 動作環境について
+　Unity2021.3.11f1で生成しております。
+　UniVRM-0.106.0を利用しているため、動作バージョンはUnity2020.3 LTS以降となります。
+　Build-in RPでの利用を想定しています。SRPでの動作は検証しておりません。
+
+- インポートについて
+　Unityプロジェクトを作成し、LoveChan_PublishData_v1.0.0.unitypackageをダブルクリック、またはProjectビューにドラッグ＆ドロップしてください。
+　既にUniVRMが存在するプロジェクトに追加する場合、UnityPackageのインポート時に「UniGLTF」「VRM」「VRMShaders」に関する項目のチェックを外してください。
+
+- モーションデータについて
+　「LoveChan_Standby_Full.fbx」「LoveChan_Standby_Light.fbx」の二種類を用意しております。
+　「Full」には全身のメッシュデータが含まれます。またモーションデータはフルキーとなっております。
+　「Light」は顔以外のメッシュデータが含まれておりません。モーションデータはある程度リダクションしております。
+
+- サンプルシーンについて
+　Assets/Scenes/SampleScene_LoveChan.unity がサンプルシーンとなっております。
+　実行すると待機モーションがループ再生されます。
+　モーションデータはAnimatorではなく、Timeline（LoveChan_Standby）に配置しております。
+
+
