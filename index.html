@@ -986,6 +986,92 @@
 			let agentMotionActive = false;
 			let agentMotionTimeout = null;
 
+			// ===== 通用 MPL 验证器：自动修正编译器不认识的骨骼/动作/方向 =====
+			const VALID_BONES = new Set(['arm_r','arm_l','elbow_r','elbow_l','wrist_r','wrist_l','shoulder_r','shoulder_l','leg_r','leg_l','knee_r','knee_l','head','neck','upper_body','lower_body','center','waist']);
+			const VALID_COMBOS = {
+				head:         [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				neck:         [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				arm_r:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
+				arm_l:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
+				shoulder_r:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				shoulder_l:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				elbow_r:      [['bend','forward'],['reset']],
+				elbow_l:      [['bend','forward'],['reset']],
+				wrist_r:      [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				wrist_l:      [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				knee_r:       [['bend','backward'],['reset']],
+				knee_l:       [['bend','backward'],['reset']],
+				leg_r:        [['bend','forward'],['bend','backward'],['reset']],
+				leg_l:        [['bend','forward'],['bend','backward'],['reset']],
+				upper_body:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				lower_body:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+				center:       [['move','forward'],['move','backward'],['move','left'],['move','right'],['move','up'],['move','down'],['reset']],
+				waist:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
+			};
+			// 骨骼名模糊映射（LLM 常见错误 → 正确骨骼）
+			const BONE_ALIASES = {
+				'hip': 'lower_body', 'hips': 'lower_body', 'pelvis': 'lower_body',
+				'thigh': 'leg_r', 'thigh_r': 'leg_r', 'thigh_l': 'leg_l',
+				'shoulder': 'shoulder_r', 'collar': 'shoulder_r', 'collar_r': 'shoulder_r', 'collar_l': 'shoulder_l',
+				'hand': 'wrist_r', 'hand_r': 'wrist_r', 'hand_l': 'wrist_l',
+				'forearm': 'elbow_r', 'forearm_r': 'elbow_r', 'forearm_l': 'elbow_l',
+				'foot': 'knee_r', 'foot_r': 'knee_r', 'foot_l': 'knee_l',
+				'torso': 'upper_body', 'chest': 'upper_body', 'spine': 'upper_body',
+				'body': 'center', 'root': 'center',
+			};
+			// 方向别名
+			const DIR_ALIASES = {
+				'up': 'forward', 'down': 'backward',
+				'front': 'forward', 'back': 'backward',
+				'cw': 'right', 'ccw': 'left',
+				'frontward': 'forward', 'backward': 'backward',
+			};
+
+			function sanitizeMPL(code) {
+				const lines = code.split('\n');
+				const result = [];
+				let skipped = 0;
+				for (const line of lines) {
+					// 匹配: bone action direction angle;
+					const m = line.match(/^(\s*)(\w+)\s+(bend|turn|sway|move|reset)(?:\s+(forward|backward|left|right|up|down))?(?:\s+(\d+))?/);
+					if (!m) { result.push(line); continue; }
+					let [full, indent, bone, action, dir, angle] = m;
+					let changed = false;
+					// 1) 骨骼名修正
+					let boneNorm = bone.toLowerCase();
+					if (!VALID_BONES.has(boneNorm)) {
+						const mapped = BONE_ALIASES[boneNorm];
+						if (mapped) { boneNorm = mapped; changed = true; console.log(`[MPL] 骨骼映射: ${bone} → ${mapped}`); }
+						else { skipped++; console.warn(`[MPL] 跳过未知骨骼: ${bone}`); continue; }
+					}
+					// 2) 方向修正
+					if (dir && DIR_ALIASES[dir]) { dir = DIR_ALIASES[dir]; changed = true; }
+					// 3) 动作+方向组合验证
+					if (action === 'reset') { /* reset 总是合法的 */ }
+					else {
+						const combos = VALID_COMBOS[boneNorm];
+						if (combos) {
+							const valid = combos.some(c => c[0] === action && (!dir || c[1] === dir));
+							if (!valid) {
+								// 找同骨骼最接近的合法组合（优先同动作）
+								let best = combos.find(c => c[0] === action) || combos[0];
+								if (best) {
+									console.warn(`[MPL] 修正组合: ${boneNorm} ${action} ${dir||''} → ${boneNorm} ${best[0]} ${best[1]}`);
+									action = best[0]; dir = best[1]; changed = true;
+								}
+							}
+						}
+					}
+					if (changed) {
+						result.push(`${indent}${boneNorm} ${action}${dir ? ' ' + dir : ''}${angle ? ' ' + angle : ''};`);
+					} else {
+						result.push(line);
+					}
+				}
+				if (skipped > 0) console.log(`[MPL] 跳过 ${skipped} 个无效行`);
+				return result.join('\n');
+			}
+
 			async function executeMPL(mplCode) {
 				if (!mplCompiler) {
 					console.warn('[MPL] Compiler not ready');
@@ -1005,7 +1091,9 @@
 						.trim();
 					console.log('[MPL] Input:', mplCode.substring(0, 200));
 					console.log('[MPL] Normalized:', normalized.substring(0, 200));
-					const vmdBytes = mplCompiler.compile(normalized);
+					// 通用验证+修正
+					const sanitized = sanitizeMPL(normalized);
+					const vmdBytes = mplCompiler.compile(sanitized);
 					console.log('[MPL] Compiled:', vmdBytes.length, 'bytes');
 
 					// 解析 VMD 并加载为动画
@@ -2408,7 +2496,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-7 loaded');
+			console.log('[App] MMD Agent v2026-07-12-8 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -3258,7 +3346,7 @@ main { 动画名; }
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-7 MPL 流式+回退';
+			document.getElementById('versionBadge').textContent = '2026-07-12-8 MPL 流式+验证';
 		</script>
 	</body>
 </html>
