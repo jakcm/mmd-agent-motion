@@ -1064,23 +1064,6 @@
 			格式: [EXPR:morph名 权重; morph名2 权重2]，权重0-1。
 			示例: [EXPR:笑 0.9] [EXPR:驚 0.8] [EXPR:照れ 0.7] [EXPR:reset]
 			可组合: [EXPR:笑 0.8;照れ 0.3]`;
-				arm_r:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
-				arm_l:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
-				shoulder_r:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
-				shoulder_l:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
-				elbow_r:      [['bend','forward'],['reset']],
-				elbow_l:      [['bend','forward'],['reset']],
-				wrist_r:      [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
-				wrist_l:      [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
-				knee_r:       [['bend','backward'],['reset']],
-				knee_l:       [['bend','backward'],['reset']],
-				leg_r:        [['bend','forward'],['bend','backward'],['reset']],
-				leg_l:        [['bend','forward'],['bend','backward'],['reset']],
-				upper_body:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
-				lower_body:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
-				center:       [['move','forward'],['move','backward'],['move','left'],['move','right'],['move','up'],['move','down'],['reset']],
-				waist:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
-			};
 			// 骨骼名模糊映射（LLM 常见错误 → 正确骨骼）
 			const BONE_ALIASES = {
 				'hip': 'lower_body', 'hips': 'lower_body', 'pelvis': 'lower_body',
