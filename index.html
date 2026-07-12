@@ -610,6 +610,18 @@
 				text-align: center;
 			}
 			@keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+			.msg-mpl {
+				font-size: 11px;
+				color: rgba(139, 155, 255, 0.6);
+				background: rgba(106, 130, 251, 0.08);
+				border-radius: 6px;
+				padding: 4px 8px;
+				margin-top: 4px;
+				font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+				line-height: 1.4;
+				word-break: break-all;
+				white-space: pre-wrap;
+			}
 
 			#input-area {
 				display: flex;
@@ -982,6 +994,13 @@
 					return new Promise((resolve) => {
 						loader.loadAnimation(url, currentMesh, (animation) => {
 							URL.revokeObjectURL(url);
+
+							// ===== 通用平滑优化：对所有关键帧轨道应用 smooth 插值 =====
+							// 这让所有 MPL 生成的动作都有自然的缓入缓出，而不是生硬的线性过渡
+							animation.tracks.forEach(track => {
+								track.setInterpolation(THREE.InterpolateSmooth);
+							});
+
 							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
 							if (!mixer) { resolve(false); return; }
 
@@ -996,14 +1015,26 @@
 							if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0); }
 							if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0); }
 
-							// 动作结束后恢复 idle
+							// 动作结束后恢复 idle（渐变过渡，不硬切）
 							const duration = animation.duration || 2;
 							if (agentMotionTimeout) clearTimeout(agentMotionTimeout);
 							agentMotionTimeout = setTimeout(() => {
-								agentAct.setEffectiveWeight(0);
-								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(1); if (!i.isRunning()) i.play(); }
-								agentMotionActive = false;
-								console.log('[MPL] Motion finished, back to idle');
+								// 渐变过渡：agent 动作权重从 1→0，idle 从 0→1
+								const fadeStart = performance.now();
+								const fadeMs = 500;
+								function fadeToIdle() {
+									const t = Math.min(1, (performance.now() - fadeStart) / fadeMs);
+									const ease = t * (2 - t); // ease-out quad
+									agentAct.setEffectiveWeight(1 - ease);
+									if (idleClip) {
+										const i = mixer.clipAction(idleClip);
+										i.setEffectiveWeight(ease);
+										if (!i.isRunning()) i.play();
+									}
+									if (t < 1) requestAnimationFrame(fadeToIdle);
+									else { agentMotionActive = false; console.log('[MPL] Motion finished, back to idle'); }
+								}
+								fadeToIdle();
 							}, duration * 1000 + 200);
 
 							console.log('[MPL] Playing agent motion, duration:', duration.toFixed(1), 's');
@@ -2706,18 +2737,26 @@ MPL 语法格式:
 main { 动画名; }
 
 骨骼名: arm_r, arm_l, elbow_r, elbow_l, wrist_r, wrist_l, shoulder_r, shoulder_l, leg_r, leg_l, knee_r, knee_l, head, neck, upper_body, lower_body, center, waist
-动作: bend(弯曲), turn(旋转), sway(摆动), move(移动,仅center)
+动作: bend(弯曲), turn(旋转), sway(摆动), move(移动,仅center), reset(归零)
 方向: forward, backward, left, right, up, down
 注意: elbow只支持bend forward; knee只支持bend backward; 每个骨骼每行可用逗号组合多条指令
 角度: 人体工学范围内(建议15-80)
 
+动画设计原则（重要！）:
+1. 每个动作都要有 rest（自然站姿）作为起始和结束帧，不要从非自然姿势开始
+2. 动作要有「预备→执行→收回」三个阶段，不能只有两个极端姿势
+3. 肩膀、上半身需要轻微配合（反向或同向微动），不要只动手臂
+4. 头部配合微动增加真实感
+5. 时间间隔建议0.2-0.4秒，太快会抽搐，太慢会拖沓
+6. 结束帧必须回到自然站姿（大部分骨骼 reset 或极小角度）
+
 示例:
-挥手: [MPL:@pose w1{shoulder_r bend forward 30;arm_r bend forward 80,sway left 15;elbow_r bend forward 30;wrist_r turn right 15;}@pose w2{shoulder_r bend forward 15;arm_r bend forward 50;elbow_r bend forward 70;}@animation wa{0:w1;0.35:w2;0.7:w1;}main{wa;}]
-鞠躬: [MPL:@pose b1{upper_body bend forward 40;neck bend forward 20;head bend forward 15;}@animation bow{0:b1;0.5:b1;1:b1;}main{bow;}]
-点头: [MPL:@pose n1{neck bend forward 25;head bend forward 20;}@pose n2{neck bend backward 5;head bend backward 8;}@animation nd{0:n1;0.25:n2;0.5:n1;0.75:n2;}main{nd;}]` },
+挥手(多帧+身体配合): [MPL:@pose rest{shoulder_r reset;arm_r reset;elbow_r reset;wrist_r reset;upper_body reset;head reset;}@pose w1{shoulder_r bend forward 25,sway left 5;arm_r bend forward 75,sway left 20;elbow_r bend forward 25;wrist_r turn right 20;upper_body sway left 3;head turn right 5,bend backward 3;}@pose w2{shoulder_r bend forward 15;arm_r bend forward 55,sway left 15;elbow_r bend forward 60;wrist_r turn left 15;upper_body sway left 2;}@animation wa{0:rest;0.15:w1;0.4:w2;0.65:w1;0.9:w2;1.1:w1;1.3:rest;}main{wa;}]
+鞠躬(含收回): [MPL:@pose rest2{upper_body reset;neck reset;head reset;lower_body reset;}@pose b1{upper_body bend forward 35;neck bend forward 18;head bend forward 12;lower_body bend forward 3;}@pose b2{upper_body bend forward 42;neck bend forward 22;head bend forward 18;lower_body bend forward 5;}@animation bow{0:rest2;0.3:b1;0.5:b2;1.0:b2;1.3:b1;1.6:rest2;}main{bow;}]
+点头(多帧节奏): [MPL:@pose rest3{neck reset;head reset;}@pose n1{neck bend forward 22;head bend forward 18;}@pose n2{neck bend backward 5;head bend backward 6;}@animation nd{0:rest3;0.15:n1;0.35:n2;0.5:n1;0.7:n2;0.85:n1;1.0:rest3;}main{nd;}]` },
 								...chatHistory.slice(-20)
 							],
-							max_tokens: 600,
+							max_tokens: 800,
 							temperature: 0.7
 						})
 					});
@@ -2737,11 +2776,12 @@ main { 动画名; }
 			const textInput = document.getElementById('text-input');
 			const sendBtn = document.getElementById('send-btn');
 
-			function addMessage(text, role) {
+			function addMessage(text, role, html) {
 				if (!chatMessagesEl) return;
 				const div = document.createElement('div');
 				div.className = 'msg ' + role;
-				div.textContent = text;
+				if (html) div.innerHTML = html;
+				else div.textContent = text;
 				chatMessagesEl.appendChild(div);
 				chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
 			}
@@ -2775,14 +2815,16 @@ main { 动画名; }
 						const mplMatch = reply.match(/\[MPL:([\s\S]*?)\]/);
 						if (mplMatch && mplMatch[1]) {
 							const mplCode = mplMatch[1].trim();
-							// 清洗文本（去掉 MPL 标记后显示）
+							// 清洗文本（去掉 MPL 标记）
 							const cleanReply = reply.replace(/\[MPL:[\s\S]*?\]/, '').trim();
-							if (cleanReply) addMessage(cleanReply, 'assistant');
-							else addMessage('(执行动作中...)', 'system');
+							// 在对话区显示：文本 + MPL 代码（折叠样式）
+							const mplHtml = '<div>' + (cleanReply || '(执行动作中…)') + '</div>'
+								+ '<div class="msg-mpl">🎬 ' + mplCode.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+							addMessage(null, 'assistant', mplHtml);
 							// 执行 MPL 动作
 							const ok = await executeMPL(mplCode);
 							if (!ok) addMessage('⚠️ 动作执行失败', 'system');
-							// 朗读文本部分
+							// 只朗读文本部分，MPL 代码不做唇形
 							if (cleanReply) speakText(cleanReply);
 						} else {
 							addMessage(reply, 'assistant');
