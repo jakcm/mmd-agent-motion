@@ -7,7 +7,7 @@
  * - CDN (unpkg/jsdelivr) → Network Only（库文件变动频繁，不缓存）
  */
 
-const CACHE_NAME = 'mmd-viewer-cache-v1';
+const CACHE_NAME = 'mmd-viewer-cache-v2';
 
 // 需要缓存优先的路径前缀
 const CACHE_FIRST_PREFIXES = [
