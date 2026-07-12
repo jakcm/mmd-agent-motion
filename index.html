@@ -589,6 +589,8 @@
 				word-break: break-word;
 				animation: msgIn .25s ease-out;
 				text-shadow: 0 1px 3px rgba(0,0,0,.8);
+				user-select: text;
+				-webkit-user-select: text;
 			}
 			.msg.user {
 				align-self: flex-end;
@@ -2406,7 +2408,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-6 loaded');
+			console.log('[App] MMD Agent v2026-07-12-7 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -2762,9 +2764,18 @@ MPL 语法格式:
 main { 动画名; }
 
 骨骼名: arm_r, arm_l, elbow_r, elbow_l, wrist_r, wrist_l, shoulder_r, shoulder_l, leg_r, leg_l, knee_r, knee_l, head, neck, upper_body, lower_body, center, waist
-动作: bend(弯曲), turn(旋转), sway(摆动), move(移动,仅center), reset(归零)
-方向: forward, backward, left, right, up, down
-注意: elbow只支持bend forward; knee只支持bend backward; 每个骨骼每行可用逗号组合多条指令
+动作与方向的合法组合（严格遵守！）:
+- head: bend forward/backward, turn left/right（不支持 turn up/down, sway）
+- neck: bend forward/backward, turn left/right（不支持 turn up/down, sway）
+- arm_r/arm_l: bend forward/backward, sway left/right, turn left/right（不支持 turn up/down）
+- shoulder_r/shoulder_l: bend forward/backward, sway left/right（不支持 turn）
+- elbow_r/elbow_l: 只支持 bend forward
+- wrist_r/wrist_l: bend forward/backward, turn left/right（不支持 sway）
+- knee_r/knee_l: 只支持 bend backward
+- leg_r/leg_l: bend forward/backward（不支持 sway/turn）
+- upper_body/lower_body: bend forward/backward, sway left/right（不支持 turn）
+- center: move only（不支持其他动作）
+- waist: bend forward/backward, sway left/right
 角度: 人体工学范围内(建议15-80)
 
 动画设计原则（重要！）:
@@ -2828,6 +2839,35 @@ main { 动画名; }
 						}
 					}
 					if (fullReply) chatHistory.push({ role: 'assistant', content: fullReply });
+					if (!fullReply) {
+						// 流式返回空，回退非流式
+						console.log('[LLM] Stream empty, retrying non-stream');
+						const resp2 = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+							method: 'POST',
+							headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								model: getModelId(),
+								messages: [
+									{ role: 'system', content: '你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。' },
+									...chatHistory.slice(-20)
+								],
+								max_tokens: 1000,
+								temperature: 0.7
+							})
+						});
+						if (resp2.ok) {
+							const json = await resp2.json();
+							const reply = json.choices?.[0]?.message?.content?.trim() || '';
+							if (reply) {
+								// 弹出刚才 push 的空 user msg，重新 push
+								chatHistory.pop();
+								chatHistory.push({ role: 'user', content: userText });
+								chatHistory.push({ role: 'assistant', content: reply });
+								if (onToken) onToken(reply, reply);
+								return { reply };
+							}
+						}
+					}
 					return { reply: fullReply };
 				} catch (e) {
 					console.error('LLM error:', e);
@@ -3218,7 +3258,7 @@ main { 动画名; }
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-6 MPL 流式输出';
+			document.getElementById('versionBadge').textContent = '2026-07-12-7 MPL 流式+回退';
 		</script>
 	</body>
 </html>
