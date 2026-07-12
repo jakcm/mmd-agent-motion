@@ -1208,8 +1208,9 @@
 							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
 							if (!mixer) { reject(new Error('动画混合器未初始化')); return; }
 
-							// ===== 保留Idle模式：在创建action之前过滤轨道 =====
+							// ===== 保留Idle模式：创建只含目标骨骼的新clip =====
 							const keepIdle = document.getElementById('cfg-keep-idle')?.checked;
+							let clipToPlay = animation;
 							if (keepIdle) {
 								// 从 sanitized MPL 中提取涉及的骨骼名（英文）
 								const involvedBones = new Set(
@@ -1221,13 +1222,16 @@
 								for (const bone of involvedBones) {
 									try { const jp = mplCompiler.get_bone_japanese_name(bone); if (jp) involvedBonesJP.add(jp); } catch(e) {}
 								}
-								// 过滤：只保留目标骨骼的 track
-								const beforeCount = animation.tracks.length;
-								animation.tracks = animation.tracks.filter(track => {
+								// 调试：打印所有轨道名
+								console.log('[MPL] 所有轨道:', animation.tracks.map(t => t.name).join(', '));
+								console.log('[MPL] 目标骨骼:', [...involvedBonesJP].join(', '));
+								// 过滤轨道，创建全新的 AnimationClip
+								const filteredTracks = animation.tracks.filter(track => {
 									const boneName = track.name.split('.')[0];
 									return involvedBonesJP.has(boneName);
 								});
-								console.log('[MPL] 保留Idle模式，轨道', beforeCount, '→', animation.tracks.length, '，骨骼:', [...involvedBonesJP].join(', '));
+								clipToPlay = new THREE.AnimationClip('agent_filtered', animation.duration, filteredTracks);
+								console.log('[MPL] 保留Idle模式，轨道', animation.tracks.length, '→', filteredTracks.length);
 								// Idle 保持低权重运行
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0.15); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0.15); }
@@ -1238,12 +1242,12 @@
 							}
 
 							// ===== 插值模式：使用线性避免短动画的 Catmull-Rom 过冲抖动 =====
-							animation.tracks.forEach(track => {
+							clipToPlay.tracks.forEach(track => {
 								track.setInterpolation(THREE.InterpolateLinear);
 							});
 
 							// 播放 Agent 动作
-							const agentAct = mixer.clipAction(animation);
+							const agentAct = mixer.clipAction(clipToPlay);
 							agentAct.setEffectiveWeight(1);
 							agentAct.reset();
 							agentAct.play();
@@ -1289,7 +1293,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-18 保留Idle轨道过滤顺序修复'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-19 新建AnimationClip避免缓存'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
