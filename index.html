@@ -645,6 +645,9 @@
 				white-space: pre-wrap;
 			}
 
+			.typing-indicator { animation: blink 1s infinite; color: rgba(139, 155, 255, 0.6); }
+			@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
 			#input-area {
 				display: flex;
 				gap: 8px;
@@ -2403,7 +2406,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-5 loaded');
+			console.log('[App] MMD Agent v2026-07-12-6 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -2737,7 +2740,7 @@
 			function getApiKey() { return document.getElementById('cfg-api-key')?.value?.trim() || ''; }
 			function getModelId() { return document.getElementById('cfg-model-id')?.value?.trim() || 'openai/gpt-4o'; }
 
-			async function callLLM(userText) {
+			async function callLLM(userText, onToken) {
 				const apiKey = getApiKey();
 				if (!apiKey) return { error: '未设置 API Key，请在设置中填写' };
 				chatHistory.push({ role: 'user', content: userText });
@@ -2747,6 +2750,7 @@
 						headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
 						body: JSON.stringify({
 							model: getModelId(),
+							stream: true,
 							messages: [
 								{ role: 'system', content: `你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。
 
@@ -2798,11 +2802,33 @@ main { 动画名; }
 						try { const ej = await resp.json(); errMsg = ej.error?.message || ej.message || JSON.stringify(ej.error || ej); } catch {}
 						return { error: 'API 返回错误: ' + errMsg };
 					}
-					const json = await resp.json();
-					if (json.error) return { error: 'API 错误: ' + (json.error.message || JSON.stringify(json.error)) };
-					const reply = json.choices?.[0]?.message?.content?.trim() || '';
-					if (reply) chatHistory.push({ role: 'assistant', content: reply });
-					return { reply };
+					// 流式读取 SSE
+					const reader = resp.body.getReader();
+					const decoder = new TextDecoder();
+					let fullReply = '';
+					let buffer = '';
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						buffer += decoder.decode(value, { stream: true });
+						const lines = buffer.split('\n');
+						buffer = lines.pop(); // 保留不完整的行
+						for (const line of lines) {
+							if (!line.startsWith('data: ')) continue;
+							const data = line.slice(6).trim();
+							if (data === '[DONE]') continue;
+							try {
+								const chunk = JSON.parse(data);
+								const delta = chunk.choices?.[0]?.delta?.content || '';
+								if (delta) {
+									fullReply += delta;
+									if (onToken) onToken(delta, fullReply);
+								}
+							} catch {}
+						}
+					}
+					if (fullReply) chatHistory.push({ role: 'assistant', content: fullReply });
+					return { reply: fullReply };
 				} catch (e) {
 					console.error('LLM error:', e);
 					return { error: '网络请求失败: ' + (e.message || e) };
@@ -2842,36 +2868,43 @@ main { 动画名; }
 					// LLM 多轮对话模式
 					isWaitingAI = true;
 					updateSendBtn();
-					addMessage('思考中...', 'system');
+					addMessage('回复中...', 'assistant', '<span class="typing-indicator">●</span>');
+					const msgDiv = chatMessagesEl?.lastElementChild;
+					const textSpan = msgDiv?.querySelector('div') || msgDiv;
 					try {
-						const result = await callLLM(text);
-						console.log('[LLM] result:', JSON.stringify(result).substring(0, 200));
-						// 移除"思考中"提示
-						const sysMsg = chatMessagesEl?.querySelector('.msg.system:last-child');
-						if (sysMsg) sysMsg.remove();
+						const result = await callLLM(text, (delta, full) => {
+							// 流式更新：实时显示文字（剥离 think 标签）
+							const clean = full.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+							if (textSpan) textSpan.textContent = clean || '...';
+						});
+						// 流式结束，解析完整回复
 						isWaitingAI = false;
 						if (result && result.error) {
+							// 替换流式消息为错误
+							if (msgDiv) msgDiv.remove();
 							addMessage('❌ ' + result.error, 'system');
 							chatHistory.pop();
 						} else if (result && result.reply) {
-								// 先剥除思考块（各种推理模型标签）
-										const visibleReply = result.reply
-										.replace(/<think>[\s\S]*?<\/think>/gi, '')
-										.replace(/<tool_call>.*?<\/tool_call>/gi, '')
-										.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
-										.trim();
+								// 剥除思考块
+								const visibleReply = result.reply
+								.replace(/<think>[\s\S]*?<\/think>/gi, '')
+								.replace(/<tool_call>.*?<\/tool_call>/gi, '')
+								.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+								.trim();
 								// Parse [MPL:...] and [EXPR:...]
 								const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
 								const exprMatch = visibleReply.match(/\[EXPR:([\s\S]*?)\]/);
 								const mplCode = mplMatch?.[1]?.trim() || '';
 								const exprCode = exprMatch?.[1]?.trim() || '';
-								// Strip
+								// Strip tags from display
 								let cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').replace(/\[EXPR:[\s\S]*?\]/, '').trim();
-								// Double check for stale brackets
 								if (cleanReply.includes('[MPL:') || cleanReply.includes('[EXPR:')) {
 									cleanReply = cleanReply.replace(/\[MPL:[\s\S]*/g, '').replace(/\[EXPR:[\s\S]*/g, '').trim();
 								}
 								const hasAction = mplCode || exprCode;
+
+								// 替换流式消息为正式格式
+								if (msgDiv) msgDiv.remove();
 
 								if (hasAction) {
 									// ① 先触发 TTS
@@ -2888,10 +2921,11 @@ main { 动画名; }
 									if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败，请查看控制台日志', 'system'); }).catch(e => addMessage('⚠️ 动作异常: ' + (e.message || e), 'system'));
 									if (exprCode) executeExpression(exprCode);
 								} else {
-									speakText(visibleReply);
-									addMessage(visibleReply, 'assistant');
+									speakText(cleanReply || visibleReply);
+									addMessage(cleanReply || visibleReply, 'assistant');
 								}
 						} else {
+							if (msgDiv) msgDiv.remove();
 							addMessage('❌ AI 返回了空回复，可能是模型不兼容', 'system');
 							chatHistory.pop();
 						}
@@ -3184,7 +3218,7 @@ main { 动画名; }
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-5 MPL 动态动作';
+			document.getElementById('versionBadge').textContent = '2026-07-12-6 MPL 流式输出';
 		</script>
 	</body>
 </html>
