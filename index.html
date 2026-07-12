@@ -917,6 +917,10 @@
 					</div>
 					<button class="test-morph-btn" id="test-morph-btn">🎭 检测并测试当前模型的嘴型 morph</button>
 					<div id="morph-list"></div>
+					<div class="rp-setting" style="margin-top:12px">
+						<div class="rp-label"><span>LLM 系统提示词（定义动作指令格式）</span></div>
+						<textarea id="cfg-system-prompt" rows="8" placeholder="留空则使用默认提示词" style="width:100%;padding:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:11px;font-family:monospace;line-height:1.5;resize:vertical"></textarea>
+					</div>
 					<div class="rp-actions" style="margin-top:8px">
 						<button id="save-lipsync-btn">💾 保存设置</button>
 					</div>
@@ -989,8 +993,60 @@
 			// ===== 通用 MPL 验证器：自动修正编译器不认识的骨骼/动作/方向 =====
 			const VALID_BONES = new Set(['arm_r','arm_l','elbow_r','elbow_l','wrist_r','wrist_l','shoulder_r','shoulder_l','leg_r','leg_l','knee_r','knee_l','head','neck','upper_body','lower_body','center','waist']);
 			const VALID_COMBOS = {
-				head:         [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
-				neck:         [['bend','forward'],['bend','backward'],['turn','left'],['turn','right'],['reset']],
+				...省略...
+			};
+			// ===== 默认系统提示词（用户可在唇形同步设置中覆盖） =====
+			const DEFAULT_SYSTEM_PROMPT = \`你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。
+
+			当用户要求你做动作，在回复末尾用 [MPL:...] 标记。
+
+			MPL 代码只允许以下4种行，其他任何内容都不要写：
+			① @pose 姿势名 { — 开始定义姿势
+			② 骨骼指令（见下表）;
+			③ } — 结束姿势定义
+			④ @animation 动画名 { 时间:姿势名; ... } main{动画名;}
+
+			完整合法骨骼指令表（只能用下面列出的，其他都不要写）：
+			- head bend forward <角度>; head bend backward <角度>; head turn left <角度>; head turn right <角度>; head reset;
+			- neck bend forward <角度>; neck bend backward <角度>; neck turn left <角度>; neck turn right <角度>; neck reset;
+			- arm_r bend forward <角度>; arm_r bend backward <角度>; arm_r sway left <角度>; arm_r sway right <角度>; arm_r turn left <角度>; arm_r turn right <角度>; arm_r reset;
+			- arm_l bend forward <角度>; arm_l bend backward <角度>; arm_l sway left <角度>; arm_l sway right <角度>; arm_l turn left <角度>; arm_l turn right <角度>; arm_l reset;
+			- shoulder_r bend forward <角度>; shoulder_r bend backward <角度>; shoulder_r sway left <角度>; shoulder_r sway right <角度>; shoulder_r reset;
+			- shoulder_l bend forward <角度>; shoulder_l bend backward <角度>; shoulder_l sway left <角度>; shoulder_l sway right <角度>; shoulder_l reset;
+			- elbow_r bend forward <角度>; elbow_r reset;
+			- elbow_l bend forward <角度>; elbow_l reset;
+			- wrist_r bend forward <角度>; wrist_r bend backward <角度>; wrist_r turn left <角度>; wrist_r turn right <角度>; wrist_r reset;
+			- wrist_l bend forward <角度>; wrist_l bend backward <角度>; wrist_l turn left <角度>; wrist_l turn right <角度>; wrist_l reset;
+			- knee_r bend backward <角度>; knee_r reset;
+			- knee_l bend backward <角度>; knee_l reset;
+			- leg_r bend forward <角度>; leg_r bend backward <角度>; leg_r reset;
+			- leg_l bend forward <角度>; leg_l bend backward <角度>; leg_l reset;
+			- upper_body bend forward <角度>; upper_body bend backward <角度>; upper_body sway left <角度>; upper_body sway right <角度>; upper_body reset;
+			- lower_body bend forward <角度>; lower_body bend backward <角度>; lower_body sway left <角度>; lower_body sway right <角度>; lower_body reset;
+			- center move forward <角度>; center move backward <角度>; center move left <角度>; center move right <角度>; center move up <角度>; center move down <角度>; center reset;
+			- waist bend forward <角度>; waist bend backward <角度>; waist sway left <角度>; waist sway right <角度>; waist reset;
+			角度范围15-80。
+
+			严格禁止：
+			- 不要使用上表以外的骨骼名（如hip, thigh, torso, chest, spine, foot, hand, forearm等都不要用）
+			- 不要使用上表以外的动作（如turn up, turn down, rotate, lean, twist, lift, raise, lower, kick, step等都不要用）
+			- 不要在MPL代码中写注释、说明文字、换行注解
+			- 不要写 @rest, @end 等不存在的指令
+
+			动画设计原则：
+			1. 每个动画必须以 rest 姿势开始和结束
+			2. 动作要有「预备→执行→收回」三阶段
+			3. 肩膀、上半身配合微动（3-10度）
+			4. 时间间隔0.2-0.4秒
+			5. 结束必须回到 rest
+
+			示例（走路）:
+			[MPL:@pose rest_c{center reset;leg_r reset;leg_l reset;upper_body reset;}@pose walk1{center move forward 15;leg_r bend forward 40;leg_l bend backward 20;upper_body sway left 3;}@pose walk2{center move forward 15;leg_l bend forward 40;leg_r bend backward 20;upper_body sway right 3;}@animation walk{0:rest_c;0.3:walk1;0.6:rest_c;0.9:walk2;1.2:rest_c;}main{walk;}]
+
+			当用户要求做表情，在回复末尾用 [EXPR:...] 标记。
+			格式: [EXPR:morph名 权重; morph名2 权重2]，权重0-1。
+			示例: [EXPR:笑 0.9] [EXPR:驚 0.8] [EXPR:照れ 0.7] [EXPR:reset]
+			可组合: [EXPR:笑 0.8;照れ 0.3]\`;
 				arm_r:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
 				arm_l:        [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['turn','left'],['turn','right'],['reset']],
 				shoulder_r:   [['bend','forward'],['bend','backward'],['sway','left'],['sway','right'],['reset']],
@@ -2533,7 +2589,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-10 loaded');
+			console.log('[App] MMD Agent v2026-07-12-12 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -2866,6 +2922,7 @@
 
 			function getApiKey() { return document.getElementById('cfg-api-key')?.value?.trim() || ''; }
 			function getModelId() { return document.getElementById('cfg-model-id')?.value?.trim() || 'openai/gpt-4o'; }
+			function getSystemPrompt() { return document.getElementById('cfg-system-prompt')?.value?.trim() || DEFAULT_SYSTEM_PROMPT; }
 
 			async function callLLM(userText, onToken) {
 				const apiKey = getApiKey();
@@ -2879,57 +2936,7 @@
 							model: getModelId(),
 							stream: true,
 							messages: [
-								{ role: 'system', content: `你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。
-
-当用户要求你做动作，在回复末尾用 [MPL:...] 标记。
-
-MPL 代码只允许以下4种行，其他任何内容都不要写：
-① @pose 姿势名 { — 开始定义姿势
-② 骨骼指令（见下表）;
-③ } — 结束姿势定义
-④ @animation 动画名 { 时间:姿势名; ... } main{动画名;}
-
-完整合法骨骼指令表（只能用下面列出的，其他都不要写）：
-- head bend forward <角度>; head bend backward <角度>; head turn left <角度>; head turn right <角度>; head reset;
-- neck bend forward <角度>; neck bend backward <角度>; neck turn left <角度>; neck turn right <角度>; neck reset;
-- arm_r bend forward <角度>; arm_r bend backward <角度>; arm_r sway left <角度>; arm_r sway right <角度>; arm_r turn left <角度>; arm_r turn right <角度>; arm_r reset;
-- arm_l bend forward <角度>; arm_l bend backward <角度>; arm_l sway left <角度>; arm_l sway right <角度>; arm_l turn left <角度>; arm_l turn right <角度>; arm_l reset;
-- shoulder_r bend forward <角度>; shoulder_r bend backward <角度>; shoulder_r sway left <角度>; shoulder_r sway right <角度>; shoulder_r reset;
-- shoulder_l bend forward <角度>; shoulder_l bend backward <角度>; shoulder_l sway left <角度>; shoulder_l sway right <角度>; shoulder_l reset;
-- elbow_r bend forward <角度>; elbow_r reset;
-- elbow_l bend forward <角度>; elbow_l reset;
-- wrist_r bend forward <角度>; wrist_r bend backward <角度>; wrist_r turn left <角度>; wrist_r turn right <角度>; wrist_r reset;
-- wrist_l bend forward <角度>; wrist_l bend backward <角度>; wrist_l turn left <角度>; wrist_l turn right <角度>; wrist_l reset;
-- knee_r bend backward <角度>; knee_r reset;
-- knee_l bend backward <角度>; knee_l reset;
-- leg_r bend forward <角度>; leg_r bend backward <角度>; leg_r reset;
-- leg_l bend forward <角度>; leg_l bend backward <角度>; leg_l reset;
-- upper_body bend forward <角度>; upper_body bend backward <角度>; upper_body sway left <角度>; upper_body sway right <角度>; upper_body reset;
-- lower_body bend forward <角度>; lower_body bend backward <角度>; lower_body sway left <角度>; lower_body sway right <角度>; lower_body reset;
-- center move forward <角度>; center move backward <角度>; center move left <角度>; center move right <角度>; center move up <角度>; center move down <角度>; center reset;
-- waist bend forward <角度>; waist bend backward <角度>; waist sway left <角度>; waist sway right <角度>; waist reset;
-角度范围15-80。
-
-严格禁止：
-- 不要使用上表以外的骨骼名（如hip, thigh, torso, chest, spine, foot, hand, forearm等都不要用）
-- 不要使用上表以外的动作（如turn up, turn down, rotate, lean, twist, lift, raise, lower, kick, step等都不要用）
-- 不要在MPL代码中写注释、说明文字、换行注解
-- 不要写 @rest, @end 等不存在的指令
-
-动画设计原则：
-1. 每个动画必须以 rest 姿势开始和结束
-2. 动作要有「预备→执行→收回」三阶段
-3. 肩膀、上半身配合微动（3-10度）
-4. 时间间隔0.2-0.4秒
-5. 结束必须回到 rest
-
-示例（走路）:
-[MPL:@pose rest_c{center reset;leg_r reset;leg_l reset;upper_body reset;}@pose walk1{center move forward 15;leg_r bend forward 40;leg_l bend backward 20;upper_body sway left 3;}@pose walk2{center move forward 15;leg_l bend forward 40;leg_r bend backward 20;upper_body sway right 3;}@animation walk{0:rest_c;0.3:walk1;0.6:rest_c;0.9:walk2;1.2:rest_c;}main{walk;}]
-
-当用户要求做表情，在回复末尾用 [EXPR:...] 标记。
-格式: [EXPR:morph名 权重; morph名2 权重2]，权重0-1。
-示例: [EXPR:笑 0.9] [EXPR:驚 0.8] [EXPR:照れ 0.7] [EXPR:reset]
-可组合: [EXPR:笑 0.8;照れ 0.3]` },
+								{ role: 'system', content: getSystemPrompt() },
 								...chatHistory.slice(-20)
 							],
 							max_tokens: 1000,
@@ -2976,7 +2983,7 @@ MPL 代码只允许以下4种行，其他任何内容都不要写：
 							body: JSON.stringify({
 								model: getModelId(),
 								messages: [
-									{ role: 'system', content: '你是 MMD 虚拟角色，正在与用户对话。请用中文简短回答（50字以内），语气活泼可爱。' },
+									{ role: 'system', content: getSystemPrompt() },
 									...chatHistory.slice(-20)
 								],
 								max_tokens: 1000,
@@ -3174,7 +3181,8 @@ MPL 代码只允许以下4种行，其他任何内容都不要写：
 					const apiKey = document.getElementById('cfg-api-key')?.value || '';
 					const modelId = document.getElementById('cfg-model-id')?.value || '';
 					const ttsVoice = document.getElementById('cfg-tts-voice')?.value || '';
-					localStorage.setItem('mmd_lipsync_settings', JSON.stringify({ apiKey, modelId, ttsVoice }));
+					const systemPrompt = document.getElementById('cfg-system-prompt')?.value || '';
+					localStorage.setItem('mmd_lipsync_settings', JSON.stringify({ apiKey, modelId, ttsVoice, systemPrompt }));
 				} catch(e) { console.warn('Save lipsync settings failed:', e); }
 			});
 
@@ -3187,9 +3195,11 @@ MPL 代码只允许以下4种行，其他任何内容都不要写：
 						const apiKeyEl = document.getElementById('cfg-api-key');
 						const modelIdEl = document.getElementById('cfg-model-id');
 						const ttsVoiceEl = document.getElementById('cfg-tts-voice');
+						const systemPromptEl = document.getElementById('cfg-system-prompt');
 						if (apiKeyEl && data.apiKey) apiKeyEl.value = data.apiKey;
 						if (modelIdEl && data.modelId) modelIdEl.value = data.modelId;
 						if (ttsVoiceEl && data.ttsVoice) ttsVoiceEl.value = data.ttsVoice;
+						if (systemPromptEl && data.systemPrompt) systemPromptEl.value = data.systemPrompt;
 					}
 				} catch(e) { console.warn('Load lipsync settings failed:', e); }
 			})();
@@ -3386,7 +3396,7 @@ MPL 代码只允许以下4种行，其他任何内容都不要写：
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-11 main块保护+兜底填充';
+			document.getElementById('versionBadge').textContent = '2026-07-12-12 LLM提示词界面可配置';
 		</script>
 	</body>
 </html>
