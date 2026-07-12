@@ -2811,26 +2811,30 @@ main { 动画名; }
 					if (sysMsg) sysMsg.remove();
 					isWaitingAI = false;
 					if (reply) {
-						// 解析 [MPL:...] 标记
-						const mplMatch = reply.match(/\[MPL:([\s\S]*?)\]/);
-						if (mplMatch && mplMatch[1]) {
-							const mplCode = mplMatch[1].trim();
-							// 清洗文本（去掉 MPL 标记）
-							const cleanReply = reply.replace(/\[MPL:[\s\S]*?\]/, '').trim();
-							// 在对话区显示：文本 + MPL 代码（折叠样式）
-							const mplHtml = '<div>' + (cleanReply || '(执行动作中…)') + '</div>'
-								+ '<div class="msg-mpl">🎬 ' + mplCode.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
-							addMessage(null, 'assistant', mplHtml);
-							// 执行 MPL 动作
-							const ok = await executeMPL(mplCode);
-							if (!ok) addMessage('⚠️ 动作执行失败', 'system');
-							// 只朗读文本部分，MPL 代码不做唇形
-							if (cleanReply) speakText(cleanReply);
-						} else {
-							addMessage(reply, 'assistant');
-							speakText(reply);
-						}
-					}else {
+							// 先剥除 <think> 块（推理模型会输出思考过程，里面常含 [MPL:...] 示例干扰匹配）
+							const visibleReply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+							// 解析 [MPL:...] 标记
+							const mplMatch = visibleReply.match(/\[MPL:([\s\S]*?)\]/);
+							if (mplMatch && mplMatch[1]) {
+								const mplCode = mplMatch[1].trim();
+								// 清洗文本（去掉 MPL 标记）
+								const cleanReply = visibleReply.replace(/\[MPL:[\s\S]*?\]/, '').trim();
+								// ① 先触发 TTS（不 await，后台播放），让数字人尽快开口
+								if (cleanReply) speakText(cleanReply);
+								// ② 显示到对话区
+								const mplHtml = '<div>' + (cleanReply || '(执行动作中…)') + '</div>'
+									+ '<div class="msg-mpl">🎬 ' + mplCode.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>') + '</div>';
+								addMessage(null, 'assistant', mplHtml);
+								// ③ 执行 MPL 动作（不阻塞 TTS）
+								executeMPL(mplCode).then(ok => {
+									if (!ok) addMessage('⚠️ 动作执行失败', 'system');
+								});
+							} else {
+								// 纯文本回复（同样先 TTS 再显示）
+								speakText(visibleReply);
+								addMessage(visibleReply, 'assistant');
+							}
+					} else {
 						addMessage('抱歉，AI 回复失败，请检查 API Key 和网络连接', 'system');
 					}
 				} else {
