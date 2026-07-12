@@ -1222,16 +1222,17 @@
 								for (const bone of involvedBones) {
 									try { const jp = mplCompiler.get_bone_japanese_name(bone); if (jp) involvedBonesJP.add(jp); } catch(e) {}
 								}
-								// 调试：打印所有轨道名
-								console.log('[MPL] 所有轨道:', animation.tracks.map(t => t.name).join(', '));
-								console.log('[MPL] 目标骨骼:', [...involvedBonesJP].join(', '));
+								// 调试：显示轨道信息
+								const allTrackNames = animation.tracks.map(t => t.name.split('.')[0]);
+								addMessage('🔍 轨道(' + allTrackNames.length + '): ' + allTrackNames.join(', '), 'system');
+								addMessage('🎯 目标骨骼: ' + [...involvedBonesJP].join(', '), 'system');
 								// 过滤轨道，创建全新的 AnimationClip
 								const filteredTracks = animation.tracks.filter(track => {
 									const boneName = track.name.split('.')[0];
 									return involvedBonesJP.has(boneName);
 								});
 								clipToPlay = new THREE.AnimationClip('agent_filtered', animation.duration, filteredTracks);
-								console.log('[MPL] 保留Idle模式，轨道', animation.tracks.length, '→', filteredTracks.length);
+								addMessage('✂️ 过滤: ' + animation.tracks.length + ' → ' + filteredTracks.length + ' 轨道', 'system');
 								// Idle 保持低权重运行
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0.15); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0.15); }
@@ -1293,7 +1294,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-19 新建AnimationClip避免缓存'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-20 调试信息输出到聊天区'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
