@@ -1194,7 +1194,7 @@
 					const blob = new Blob([vmdBytes], { type: 'application/octet-stream' });
 					const url = URL.createObjectURL(blob);
 
-					return new Promise((resolve) => {
+					return new Promise((resolve, reject) => {
 						loader.loadAnimation(url, currentMesh, (animation) => {
 							URL.revokeObjectURL(url);
 
@@ -1204,7 +1204,7 @@
 							});
 
 							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
-							if (!mixer) { resolve(false); throw new Error('动画混合器未初始化'); }
+							if (!mixer) { reject(new Error('动画混合器未初始化')); return; }
 
 							// 暂停当前舞蹈/idle，播放 Agent 动作
 							const agentAct = mixer.clipAction(animation);
@@ -1244,8 +1244,7 @@
 						}, undefined, (err) => {
 							URL.revokeObjectURL(url);
 							console.error('[MPL] VMD load error:', err);
-							resolve(false);
-							throw new Error('VMD 动画加载失败: ' + (err.message || err));
+							reject(new Error('VMD 动画加载失败: ' + (err.message || err)));
 						});
 					});
 				} catch (e) {
@@ -3130,7 +3129,7 @@
 									const html = '<div>' + (cleanReply || '(执行动作中…)') + '</div>' + actionHtml;
 									addMessage(null, 'assistant', html);
 									// ③ 执行动作（不阻塞）
-									if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败，请查看控制台日志', 'system'); }).catch(e => addMessage('⚠️ 动作异常: ' + (e.message || e), 'system'));
+									if (mplCode) executeMPL(mplCode).catch(e => addMessage('⚠️ ' + (e.message || e), 'system'));
 									if (exprCode) executeExpression(exprCode);
 								} else {
 									speakText(cleanReply || visibleReply);
