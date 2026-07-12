@@ -922,6 +922,13 @@
 						<textarea id="cfg-system-prompt" rows="8" placeholder="留空则使用默认提示词" style="width:100%;padding:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:11px;font-family:monospace;line-height:1.5;resize:vertical"></textarea>
 					</div>
 					<div class="rp-actions" style="margin-top:8px">
+						<div class="rp-setting" style="margin-bottom:8px">
+						<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.7);cursor:pointer">
+							<input type="checkbox" id="cfg-debug-mode" style="accent-color:#6a82fb;width:16px;height:16px;cursor:pointer">
+							<span>开启调试模式</span>
+						</label>
+						<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:24px;margin-top:2px">勾选后：动作执行时在聊天区输出轨道过滤等调试信息</div>
+						</div>
 						<button id="save-lipsync-btn">💾 保存设置</button>
 						</div>
 						<div class="rp-setting" style="margin-top:8px">
@@ -1222,17 +1229,20 @@
 								for (const bone of involvedBones) {
 									try { const jp = mplCompiler.get_bone_japanese_name(bone); if (jp) involvedBonesJP.add(jp); } catch(e) {}
 								}
-								// 调试：显示轨道信息
-								const allTrackNames = animation.tracks.map(t => t.name.split('.')[0]);
-								addMessage('🔍 轨道(' + allTrackNames.length + '): ' + allTrackNames.join(', '), 'system');
-								addMessage('🎯 目标骨骼: ' + [...involvedBonesJP].join(', '), 'system');
+								// 调试：显示轨道信息（仅调试模式）
+								const debugOn = document.getElementById('cfg-debug-mode')?.checked;
+								if (debugOn) {
+									const allTrackNames = animation.tracks.map(t => t.name.split('.')[0]);
+									addMessage('🔍 轨道(' + allTrackNames.length + '): ' + allTrackNames.join(', '), 'system');
+									addMessage('🎯 目标骨骼: ' + [...involvedBonesJP].join(', '), 'system');
+								}
 								// 过滤轨道，创建全新的 AnimationClip
 								const filteredTracks = animation.tracks.filter(track => {
 									const boneName = track.name.split('.')[0];
 									return involvedBonesJP.has(boneName);
 								});
 								clipToPlay = new THREE.AnimationClip('agent_filtered', animation.duration, filteredTracks);
-								addMessage('✂️ 过滤: ' + animation.tracks.length + ' → ' + filteredTracks.length + ' 轨道', 'system');
+								if (debugOn) addMessage('✂️ 过滤: ' + animation.tracks.length + ' → ' + filteredTracks.length + ' 轨道', 'system');
 								// Idle 保持低权重运行
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0.15); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0.15); }
@@ -1294,7 +1304,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-20 调试信息输出到聊天区'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-21 调试模式开关+opencli测试'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
@@ -3255,7 +3265,7 @@
 					const ttsVoice = document.getElementById('cfg-tts-voice')?.value || '';
 					const systemPrompt = document.getElementById('cfg-system-prompt')?.value || '';
 					const keepIdle = document.getElementById('cfg-keep-idle')?.checked || false;
-				localStorage.setItem('mmd_lipsync_settings', JSON.stringify({ apiKey, modelId, ttsVoice, systemPrompt, keepIdle }));
+				localStorage.setItem('mmd_lipsync_settings', JSON.stringify({ apiKey, modelId, ttsVoice, systemPrompt, keepIdle, debugMode }));
 				} catch(e) { console.warn('Save lipsync settings failed:', e); }
 			});
 
@@ -3276,6 +3286,8 @@
 						if (systemPromptEl && data.systemPrompt) systemPromptEl.value = data.systemPrompt;
 						else if (systemPromptEl) systemPromptEl.value = DEFAULT_SYSTEM_PROMPT;
 						if (keepIdleEl && data.keepIdle) keepIdleEl.checked = true;
+						const debugModeEl = document.getElementById('cfg-debug-mode');
+						if (debugModeEl && data.debugMode) debugModeEl.checked = true;
 					}
 					// 如果没有保存的设置，也用默认提示词填充
 					else {
