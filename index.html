@@ -982,9 +982,13 @@
 			let agentMotionTimeout = null;
 
 			async function executeMPL(mplCode) {
-				if (!mplCompiler || !currentMesh) {
-					console.warn('[MPL] Compiler or mesh not ready');
-					return false;
+				if (!mplCompiler) {
+					console.warn('[MPL] Compiler not ready');
+					throw new Error('MPL 编译器未加载');
+				}
+				if (!currentMesh) {
+					console.warn('[MPL] Mesh not ready');
+					throw new Error('3D 模型未加载完成');
 				}
 				try {
 					// 规范化 MPL 代码：确保花括号和分号后有换行，花括号前有空格
@@ -994,6 +998,8 @@
 						.replace(/;/g, ';\n')
 						.replace(/\n\s*\n/g, '\n')
 						.trim();
+					console.log('[MPL] Input:', mplCode.substring(0, 200));
+					console.log('[MPL] Normalized:', normalized.substring(0, 200));
 					const vmdBytes = mplCompiler.compile(normalized);
 					console.log('[MPL] Compiled:', vmdBytes.length, 'bytes');
 
@@ -1012,7 +1018,7 @@
 							});
 
 							const mixer = currentHelper?.objects?.get(currentMesh)?.mixer;
-							if (!mixer) { resolve(false); return; }
+							if (!mixer) { resolve(false); throw new Error('动画混合器未初始化'); }
 
 							// 暂停当前舞蹈/idle，播放 Agent 动作
 							const agentAct = mixer.clipAction(animation);
@@ -1053,11 +1059,12 @@
 							URL.revokeObjectURL(url);
 							console.error('[MPL] VMD load error:', err);
 							resolve(false);
+							throw new Error('VMD 动画加载失败: ' + (err.message || err));
 						});
 					});
 				} catch (e) {
 					console.error('[MPL] Compile error:', e);
-					return false;
+					throw new Error('MPL 编译/执行失败: ' + (e.message || e));
 				}
 			}
 
@@ -2396,7 +2403,7 @@
 			let mouthMorphs = {};
 			let isSpeaking = false;
 			let isWaitingAI = false;
-			console.log('[App] MMD Agent v2026-07-12-4 loaded');
+			console.log('[App] MMD Agent v2026-07-12-5 loaded');
 
 			function detectMouthMorphs(targetMesh) {
 				const result = {};
@@ -2878,7 +2885,7 @@ main { 动画名; }
 									const html = '<div>' + (cleanReply || '(执行动作中…)') + '</div>' + actionHtml;
 									addMessage(null, 'assistant', html);
 									// ③ 执行动作（不阻塞）
-									if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败', 'system'); });
+									if (mplCode) executeMPL(mplCode).then(ok => { if (!ok) addMessage('⚠️ 动作执行失败，请查看控制台日志', 'system'); }).catch(e => addMessage('⚠️ 动作异常: ' + (e.message || e), 'system'));
 									if (exprCode) executeExpression(exprCode);
 								} else {
 									speakText(visibleReply);
@@ -3177,7 +3184,7 @@ main { 动画名; }
 			})();
 
 			// 版本号
-			document.getElementById('versionBadge').textContent = '2026-07-12-4 MPL 动态动作';
+			document.getElementById('versionBadge').textContent = '2026-07-12-5 MPL 动态动作';
 		</script>
 	</body>
 </html>
