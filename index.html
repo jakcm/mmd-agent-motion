@@ -1817,7 +1817,7 @@
 						(progress) => {
 							if (progress.total > 0) {
 								const percent = (100.0 * (progress.loaded / progress.total)).toFixed(0);
-								loadingText.textContent = `版本号：${percent}%`;
+								loadingText.textContent = `<${VERSION_STR}> ${percent}%`;
 							}
 						},
 						(error) => {
