@@ -2739,7 +2739,7 @@
 
 			async function callLLM(userText) {
 				const apiKey = getApiKey();
-				if (!apiKey) return null;
+				if (!apiKey) return { error: '未设置 API Key，请在设置中填写' };
 				chatHistory.push({ role: 'user', content: userText });
 				try {
 					const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -2793,14 +2793,19 @@ main { 动画名; }
 							temperature: 0.7
 						})
 					});
-					if (!resp.ok) throw new Error('API error: ' + resp.status);
+					if (!resp.ok) {
+						let errMsg = 'HTTP ' + resp.status;
+						try { const ej = await resp.json(); errMsg = ej.error?.message || ej.message || JSON.stringify(ej.error || ej); } catch {}
+						return { error: 'API 返回错误: ' + errMsg };
+					}
 					const json = await resp.json();
+					if (json.error) return { error: 'API 错误: ' + (json.error.message || JSON.stringify(json.error)) };
 					const reply = json.choices?.[0]?.message?.content?.trim() || '';
 					if (reply) chatHistory.push({ role: 'assistant', content: reply });
-					return reply;
+					return { reply };
 				} catch (e) {
 					console.error('LLM error:', e);
-					return null;
+					return { error: '网络请求失败: ' + (e.message || e) };
 				}
 			}
 
@@ -2838,14 +2843,18 @@ main { 动画名; }
 					isWaitingAI = true;
 					updateSendBtn();
 					addMessage('思考中...', 'system');
-					const reply = await callLLM(text);
+					const result = await callLLM(text);
 					// 移除"思考中"提示
 					const sysMsg = chatMessagesEl?.querySelector('.msg.system:last-child');
 					if (sysMsg) sysMsg.remove();
 					isWaitingAI = false;
-					if (reply) {
+					if (result.error) {
+						addMessage('❌ ' + result.error, 'system');
+						// 回滚 user message from chatHistory
+						chatHistory.pop();
+					} else if (result.reply) {
 							// 先剥除思考块（各种推理模型标签）
-								const visibleReply = reply
+									const visibleReply = result.reply
 									.replace(/<think>[\s\S]*?<\/think>/gi, '')
 									.replace(/<tool_call>.*?<\/tool_call>/gi, '')
 									.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
@@ -2884,7 +2893,8 @@ main { 动画名; }
 								addMessage(visibleReply, 'assistant');
 							}
 					} else {
-						addMessage('抱歉，AI 回复失败，请检查 API Key 和网络连接', 'system');
+						addMessage('❌ AI 返回了空回复，可能是模型不兼容', 'system');
+						chatHistory.pop();
 					}
 				} else {
 					// 无 API Key：直接朗读
