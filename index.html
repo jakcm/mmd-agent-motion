@@ -1223,21 +1223,26 @@
 							// ===== 保留Idle模式：只覆盖MPL提到的骨骼，其他继续由Idle控制 =====
 							const keepIdle = document.getElementById('cfg-keep-idle')?.checked;
 							if (keepIdle) {
-								// 从 sanitized MPL 中提取涉及的骨骼名
+								// 从 sanitized MPL 中提取涉及的骨骼名（英文）
 								const involvedBones = new Set(
 									(sanitized.match(/^(\s*)(\w+)\s+(bend|turn|sway|move|reset)/gm) || [])
 										.map(line => line.trim().split(/\s+/)[0])
 								);
+								// 翻译为日文骨骼名（VMD 轨道用日文命名）
+								const involvedBonesJP = new Set(involvedBones);
+								for (const bone of involvedBones) {
+									try { const jp = mplCompiler.get_bone_japanese_name(bone); if (jp) involvedBonesJP.add(jp); } catch(e) {}
+								}
 								// 只保留目标骨骼的 track
 								animation.tracks = animation.tracks.filter(track => {
 									const boneName = track.name.split('.')[0];
-									return involvedBones.has(boneName);
+									return involvedBonesJP.has(boneName);
 								});
+								console.log('[MPL] 保留Idle模式，仅覆盖骨骼:', [...involvedBonesJP].join(', '));
 								// Idle 保持低权重运行
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0.15); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0.15); }
-								console.log('[MPL] 保留Idle模式，仅覆盖骨骼:', [...involvedBones].join(', '));
-							} else {
+								} else {
 								// 原逻辑：完全暂停 idle/dance
 								if (danceClip) { const d = mixer.clipAction(danceClip); d.setEffectiveWeight(0); }
 								if (idleClip) { const i = mixer.clipAction(idleClip); i.setEffectiveWeight(0); }
