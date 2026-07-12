@@ -940,32 +940,18 @@
 			}
 				</script>
 
-				<!-- ===== Service Worker 注册：资源缓存 ===== -->
+				<!-- SW 已临时移除，解决缓存旧版问题 -->
 				<script>
 						if ('serviceWorker' in navigator) {
-					window.addEventListener('load', () => {
-						navigator.serviceWorker.register('./sw.js')
-							.then((reg) => {
-								console.log('[SW] Registered, scope:', reg.scope);
-								// 强制检查 SW 更新
-								reg.update();
-								// 检查是否有等待激活的新 SW，有则通知页面刷新
-								reg.addEventListener('updatefound', () => {
-									const newSW = reg.installing;
-									newSW.addEventListener('statechange', () => {
-										if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
-											console.log('[SW] New version activated, reloading...');
-											window.location.reload();
-										}
-									});
-								});
-							})
-							.catch((err) => {
-								console.warn('[SW] Registration failed:', err);
+							// 先注销旧 SW 并清除所有缓存
+							navigator.serviceWorker.getRegistrations().then(regs => {
+								regs.forEach(r => r.unregister());
 							});
-					});
-				}
-		</script>
+							if ('caches' in window) {
+								caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+							}
+						}
+				</script>
 
 		<script type="module">
 			import * as THREE from 'three';
