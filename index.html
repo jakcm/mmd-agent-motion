@@ -934,7 +934,7 @@
 						<button id="save-lipsync-btn" style="width:100%;margin-top:8px">💾 保存设置</button>
 						<div class="rp-setting" style="margin-top:8px">
 						<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.7);cursor:pointer">
-							<input type="checkbox" id="cfg-keep-idle" style="accent-color:#6a82fb;width:16px;height:16px;cursor:pointer">
+							<input type="checkbox" id="cfg-keep-idle" checked style="accent-color:#6a82fb;width:16px;height:16px;cursor:pointer">
 							<span>对话动作保留Idle</span>
 						</label>
 						<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:24px;margin-top:2px">勾选后：对话动作只控制提到的骨骼，其他骨骼继续由Idle驱动</div>
@@ -1217,7 +1217,7 @@
 							if (!mixer) { reject(new Error('动画混合器未初始化')); return; }
 
 							// ===== 保留Idle模式：创建只含目标骨骼的新clip =====
-							const keepIdle = document.getElementById('cfg-keep-idle')?.checked;
+							const keepIdle = document.getElementById('cfg-keep-idle')?.checked ?? true;
 							let clipToPlay = animation;
 							if (keepIdle) {
 								// 从 sanitized MPL 中提取涉及的骨骼名（英文）
@@ -1305,7 +1305,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-26 debugMode保存修复'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-27 keepIdle默认开启'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
@@ -3295,7 +3295,7 @@
 						if (ttsVoiceEl && data.ttsVoice) ttsVoiceEl.value = data.ttsVoice;
 						if (systemPromptEl && data.systemPrompt) systemPromptEl.value = data.systemPrompt;
 						else if (systemPromptEl) systemPromptEl.value = DEFAULT_SYSTEM_PROMPT;
-						if (keepIdleEl && data.keepIdle) keepIdleEl.checked = true;
+						if (keepIdleEl) keepIdleEl.checked = data.keepIdle !== false;
 						const debugModeEl = document.getElementById('cfg-debug-mode');
 						if (debugModeEl && data.debugMode) debugModeEl.checked = true;
 					}
