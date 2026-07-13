@@ -903,6 +903,7 @@
 
 				<!-- 对话 -->
 				<div class="render-tab-content" id="tab-lipsync">
+					<button id="new-session-btn" style="width:100%;padding:8px 12px;margin-bottom:12px;border:1px solid rgba(106,130,251,0.4);border-radius:8px;background:rgba(106,130,251,0.12);color:#8b9bff;font-size:12px;font-weight:600;cursor:pointer;touch-action:manipulation;transition:background 0.2s">🆕 开启新会话（清除历史上下文）</button>
 					<div class="rp-setting">
 						<div class="rp-label"><span>OpenRouter API Key（可选 — 不填则只朗读文字）</span></div>
 						<input type="password" id="cfg-api-key" placeholder="sk-or-v1-...">
@@ -929,8 +930,8 @@
 						</label>
 						<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:24px;margin-top:2px">勾选后：动作执行时在聊天区输出轨道过滤等调试信息</div>
 						</div>
-						<button id="save-lipsync-btn">💾 保存设置</button>
 						</div>
+						<button id="save-lipsync-btn" style="width:100%;margin-top:8px">💾 保存设置</button>
 						<div class="rp-setting" style="margin-top:8px">
 						<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.7);cursor:pointer">
 							<input type="checkbox" id="cfg-keep-idle" style="accent-color:#6a82fb;width:16px;height:16px;cursor:pointer">
@@ -1304,7 +1305,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-24 keepIdle不修改idle权重'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-25 新会话按钮+保存按钮布局修复'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
@@ -3255,6 +3256,14 @@
 						if (testIdx >= testKeys.length * 3) clearInterval(testInterval);
 					}, 600);
 				}
+			});
+
+			// ===== 开启新会话 =====
+			document.getElementById('new-session-btn')?.addEventListener('click', () => {
+				chatHistory = [];
+				const chatMsgs = document.getElementById('chat-messages');
+				if (chatMsgs) chatMsgs.innerHTML = '';
+				console.log('[Chat] 新会话已开启，历史上下文已清除');
 			});
 
 			// ===== 保存唇形同步设置 =====
