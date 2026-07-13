@@ -1305,7 +1305,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-25 新会话按钮+保存按钮布局修复'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-26 debugMode保存修复'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
@@ -3274,6 +3274,7 @@
 					const ttsVoice = document.getElementById('cfg-tts-voice')?.value || '';
 					const systemPrompt = document.getElementById('cfg-system-prompt')?.value || '';
 					const keepIdle = document.getElementById('cfg-keep-idle')?.checked || false;
+				const debugMode = document.getElementById('cfg-debug-mode')?.checked || false;
 				localStorage.setItem('mmd_lipsync_settings', JSON.stringify({ apiKey, modelId, ttsVoice, systemPrompt, keepIdle, debugMode }));
 				} catch(e) { console.warn('Save lipsync settings failed:', e); }
 			});
