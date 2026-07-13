@@ -1001,6 +1001,59 @@
 				}
 			}
 
+			// ===== DEBUG: 手臂骨骼监控开关 =====
+			const DEBUG_ARM_MONITOR = false; // 设为 false 关闭所有监控日志
+			const ARM_BONE_NAMES = ['右腕', '左腕', '右ひじ', '左ひじ', '右肩', '左肩'];
+			const ARM_BONE_EN = { '右腕':'arm_r', '左腕':'arm_l', '右ひじ':'elbow_r', '左ひじ':'elbow_l', '右肩':'shoulder_r', '左肩':'shoulder_l' };
+			const JUMP_THRESHOLD = 0.001; // 四元数绝对差阈值
+
+			/**
+			 * 获取骨架中指定骨骼的四元数快照
+			 */
+			function snapshotArmBones(mesh, label) {
+				if (!DEBUG_ARM_MONITOR || !mesh?.skeleton) return null;
+				const bones = mesh.skeleton.bones;
+				const snap = {};
+				for (const b of bones) {
+					if (ARM_BONE_NAMES.includes(b.name)) {
+						snap[b.name] = {
+							x: +b.quaternion.x.toFixed(6),
+							y: +b.quaternion.y.toFixed(6),
+							z: +b.quaternion.z.toFixed(6),
+							w: +b.quaternion.w.toFixed(6),
+						};
+					}
+				}
+				console.log('[ARM-MONITOR] ' + label, JSON.stringify(snap));
+				return snap;
+			}
+
+			/**
+			 * 对比两组骨骼快照，输出 Δ 值，返回每根骨骼的 delta
+			 */
+			function diffArmSnapshots(before, after, label) {
+				if (!DEBUG_ARM_MONITOR || !before || !after) return null;
+				const deltas = {};
+				let hasJump = false;
+				for (const name of ARM_BONE_NAMES) {
+					const b = before[name], a = after[name];
+					if (!b || !a) continue;
+					const delta = Math.abs(b.x - a.x) + Math.abs(b.y - a.y) + Math.abs(b.z - a.z) + Math.abs(b.w - a.w);
+					deltas[name] = delta;
+					const status = delta > JUMP_THRESHOLD ? '⚠️ JUMP' : '✅ OK';
+					if (delta > JUMP_THRESHOLD) {
+						hasJump = true;
+						console.warn('[ARM-MONITOR] ' + label + ' ' + (ARM_BONE_EN[name]||name) + '(' + name + ') Δ=' + delta.toFixed(6) +
+							' idle=(' + b.x + ',' + b.y + ',' + b.z + ',' + b.w + ')' +
+							' cur=(' + a.x + ',' + a.y + ',' + a.z + ',' + a.w + ') ' + status);
+					} else {
+						console.log('[ARM-MONITOR] ' + label + ' ' + (ARM_BONE_EN[name]||name) + '(' + name + ') Δ=' + delta.toFixed(6) + ' ' + status);
+					}
+				}
+				if (!hasJump) console.log('[ARM-MONITOR] ' + label + ' ✅ ALL 6 ARM BONES STABLE');
+				return deltas;
+			}
+
 			// ===== 动态骨骼动作控制 =====
 			let agentMotionActive = false;
 			let agentMotionTimeout = null;
@@ -1265,8 +1318,105 @@
 							agentAct.play();
 							agentMotionActive = true;
 
-							// 动作结束后恢复 idle
+							// 动画时长（ARM MONITOR 和 fadeToIdle 都需要）
 							const duration = animation.duration || 2;
+
+							// ===== ARM MONITOR: 帧级手臂骨骼监控 =====
+							if (DEBUG_ARM_MONITOR && currentMesh) {
+								const keepIdleLabel = keepIdle ? 'ON' : 'OFF';
+								const beforeSnap = snapshotArmBones(currentMesh, '[T=0 BEFORE play] keepIdle=' + keepIdleLabel);
+								let lastSnap = beforeSnap;
+								let frameCount = 0;
+								const monitorStart = performance.now();
+								const mplEndTime = duration * 1000;
+								const fadeEndTime = mplEndTime + 200 + 500; // +200ms delay + 500ms fade
+								// 逐骨骼 max Δ 跟踪
+								const maxDeltas = {};
+								ARM_BONE_NAMES.forEach(n => maxDeltas[n] = { delta: 0, time: 0, frame: 0 });
+								// 逐骨骼跳变帧计数
+								const jumpCounts = {};
+								ARM_BONE_NAMES.forEach(n => jumpCounts[n] = 0);
+								let totalFrames = 0;
+
+								console.log('[ARM-MONITOR] ═══════════════════════════════════');
+								console.log('[ARM-MONITOR] 开始监控: keepIdle=' + keepIdleLabel + ', duration=' + duration.toFixed(2) + 's, 预计 ' + ((fadeEndTime)/1000).toFixed(1) + 's 后完成');
+								console.log('[ARM-MONITOR] 监控骨骼: ' + ARM_BONE_NAMES.map(n => ARM_BONE_EN[n]).join(', '));
+								console.log('[ARM-MONITOR] 跳变阈值: ' + JUMP_THRESHOLD);
+								console.log('[ARM-MONITOR] ═══════════════════════════════════');
+
+								const monInterval = setInterval(() => {
+									const elapsed = performance.now() - monitorStart;
+									frameCount++;
+									totalFrames = frameCount;
+									const curSnap = snapshotArmBones(currentMesh, '[t=' + (elapsed/1000).toFixed(3) + 's f=' + frameCount + ']');
+									if (curSnap && lastSnap) {
+										const deltas = diffArmSnapshots(lastSnap, curSnap, 'Δframe t=' + (elapsed/1000).toFixed(3));
+										// 更新 max deltas 和 jump counts
+										if (deltas) {
+											for (const name of ARM_BONE_NAMES) {
+												if (deltas[name] !== undefined) {
+													if (deltas[name] > maxDeltas[name].delta) {
+														maxDeltas[name] = { delta: deltas[name], time: elapsed/1000, frame: frameCount };
+													}
+													if (deltas[name] > JUMP_THRESHOLD) {
+														jumpCounts[name] = (jumpCounts[name] || 0) + 1;
+													}
+												}
+											}
+										}
+									}
+									lastSnap = curSnap;
+
+									// 动画+fade 全部结束后停止监控并输出总结
+									if (elapsed > fadeEndTime + 200) {
+										clearInterval(monInterval);
+										const finalSnap = snapshotArmBones(currentMesh, '[FINAL]');
+
+										// ═══ 总结日志 ═══
+										console.log('[ARM-MONITOR] ═══════════════════════════════════');
+										console.log('[ARM-MONITOR] ═══ 总结 (keepIdle=' + keepIdleLabel + ') ═══');
+										console.log('[ARM-MONITOR] ═══════════════════════════════════');
+										diffArmSnapshots(beforeSnap, finalSnap, 'TOTAL(start→end)');
+
+										// console.table 汇总
+										const summary = {};
+										for (const name of ARM_BONE_NAMES) {
+											const en = ARM_BONE_EN[name] || name;
+											const md = maxDeltas[name];
+											const jc = jumpCounts[name] || 0;
+											const startEndDelta = beforeSnap[name] && finalSnap[name] ?
+												Math.abs(beforeSnap[name].x - finalSnap[name].x) +
+												Math.abs(beforeSnap[name].y - finalSnap[name].y) +
+												Math.abs(beforeSnap[name].z - finalSnap[name].z) +
+												Math.abs(beforeSnap[name].w - finalSnap[name].w) : -1;
+											summary[en + '(' + name + ')'] = {
+												'maxΔ帧间': md.delta.toFixed(6),
+												'maxΔ时刻': md.time.toFixed(3) + 's',
+												'maxΔ帧#': md.frame,
+												'跳变帧数': jc + '/' + totalFrames,
+												'跳变率': totalFrames > 0 ? (jc / totalFrames * 100).toFixed(1) + '%' : '0%',
+												'始末Δ': startEndDelta.toFixed(6),
+												'状态': md.delta > JUMP_THRESHOLD ? '⚠️ 有跳变' : '✅ 稳定'
+											};
+										}
+										console.log('[ARM-MONITOR] ══ console.table 逐骨骼汇总 ══');
+										console.table(summary);
+
+										// 总体判定
+										const jumpBones = ARM_BONE_NAMES.filter(n => maxDeltas[n].delta > JUMP_THRESHOLD);
+										if (jumpBones.length > 0) {
+											console.warn('[ARM-MONITOR] ❌ 检测到 ' + jumpBones.length + '/6 根手臂骨骼有跳变: ' + jumpBones.map(n => ARM_BONE_EN[n]).join(', '));
+										} else {
+											console.log('[ARM-MONITOR] ✅ 所有 6 根手臂骨骼稳定，无跳变');
+										}
+										console.log('[ARM-MONITOR] 监控结束: ' + totalFrames + ' 帧, ' + (elapsed/1000).toFixed(1) + 's, keepIdle=' + keepIdleLabel);
+										console.log('[ARM-MONITOR] ═══════════════════════════════════');
+									}
+								}, 16); // ~60fps
+							}
+							// ===== END ARM MONITOR =====
+
+							// 动作结束后恢复 idle
 							if (agentMotionTimeout) clearTimeout(agentMotionTimeout);
 							agentMotionTimeout = setTimeout(() => {
 								const fadeStart = performance.now();
@@ -1275,11 +1425,15 @@
 									const t = Math.min(1, (performance.now() - fadeStart) / fadeMs);
 									const ease = t * (2 - t); // ease-out quad
 									agentAct.setEffectiveWeight(1 - ease);
-									if (idleClip) {
-										const i = mixer.clipAction(idleClip);
-										i.setEffectiveWeight(ease);
-										if (!i.isRunning()) i.play();
+									if (!keepIdle) {
+										// keepIdle=OFF: idle 被暂停过，需要恢复
+										if (idleClip) {
+											const i = mixer.clipAction(idleClip);
+											i.setEffectiveWeight(ease);
+											if (!i.isRunning()) i.play();
+										}
 									}
+									// keepIdle=ON: idle 一直在跑 weight=1，不需要动它
 									if (t < 1) requestAnimationFrame(fadeToIdle);
 									else { agentMotionActive = false; console.log('[MPL] Motion finished, back to idle'); }
 								}
@@ -1305,7 +1459,7 @@
 			const loadingText = document.getElementById('loadingText');
 
 			// ===== 构建版本号（yyyy-MM-dd HH:mm，推送 GitHub 时更新） =====
-			const BUILD_TIMESTAMP = '2026-07-12-27 keepIdle默认开启'; // 每次推送前手动更新
+			const BUILD_TIMESTAMP = '2026-07-12-28 fix fadeToIdle keepIdle跳变'; // 每次推送前手动更新
 			document.getElementById('versionBadge').textContent = BUILD_TIMESTAMP;
 			const menuToggle = document.getElementById('menuToggle');
 			const menuIcon = document.getElementById('menuIcon');
