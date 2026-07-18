@@ -25,6 +25,23 @@
 - Edge TTS 语音合成
 - GitHub Pages 部署
 
+## 部署前必做
+
+每次推送到 GitHub 前，请手动更新版本号：
+
+1. **修改加载 loading 界面的版本号** — `index.html` 中的 `BUILD_TIMESTAMP`
+2. **修改模型选择弹窗界面左上角版本号** — 与上述使用同一变量，自动同步
+3. **版本号格式**：`Version: yyyyMMddHHmm`
+4. **以开始推送 GitHub 时的北京时间（+8 时区）为准**
+5. 定位到 `index.html` 中的以下代码块：
+
+```javascript
+// ===== 构建版本号（yyyyMMddHHmm，推送 GitHub 时更新，北京时间 +8） =====
+const BUILD_TIMESTAMP = 'Version: 202607182244'; // 每次推送前手动更新
+```
+
+将 `202607182244` 替换为当前北京时间即可运行 `TZ='Asia/Shanghai' date '+%Y%m%d%H%M'` 生成。
+
 ## 部署
 
 ```bash
